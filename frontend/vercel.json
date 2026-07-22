@@ -1,0 +1,6 @@
+{
+  "installCommand": "sed -i '/@next\\/swc-win32-x64-msvc/d' package.json && npm install",
+  "buildCommand": "next build --webpack",
+  "outputDirectory": ".next",
+  "framework": "nextjs"
+}

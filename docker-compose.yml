@@ -1,0 +1,70 @@
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: payafrika-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: payafrika
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - payafrika
+
+  backend:
+    build:
+      context: ./backend/PayAfrika.API
+      dockerfile: Dockerfile
+    container_name: payafrika-api
+    environment:
+      ConnectionStrings__DefaultConnection: Host=postgres;Database=payafrika;Username=postgres;Password=${DB_PASSWORD:-postgres}
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - payafrika
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: payafrika-web
+    environment:
+      NEXT_PUBLIC_API_URL: /api
+      NEXT_PUBLIC_APP_URL: http://localhost
+      NODE_ENV: production
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - payafrika
+
+  nginx:
+    image: nginx:alpine
+    container_name: payafrika-nginx
+    ports:
+      - "${PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    networks:
+      - payafrika
+
+networks:
+  payafrika:
+    driver: bridge
+
+volumes:
+  postgres_data:
