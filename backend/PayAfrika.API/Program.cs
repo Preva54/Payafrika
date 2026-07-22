@@ -93,6 +93,17 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
+
+    var adminEmail = builder.Configuration["AdminEmail"]
+        ?? Environment.GetEnvironmentVariable("NEXT_PUBLIC_ADMIN_EMAIL")
+        ?? "meetpeterosakwe@gmail.com";
+
+    var adminUser = db.Users.FirstOrDefault(u => u.Email == adminEmail);
+    if (adminUser != null && adminUser.Role != "admin")
+    {
+        adminUser.Role = "admin";
+        db.SaveChanges();
+    }
 }
 
 app.Run();
