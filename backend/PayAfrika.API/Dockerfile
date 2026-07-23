@@ -13,13 +13,7 @@ WORKDIR /app
 ENV ASPNETCORE_URLS=http://+:8080
 ENV ASPNETCORE_ENVIRONMENT=Production
 
-RUN addgroup --system --gid 1001 appgroup && \
-    adduser --system --uid 1001 appuser && \
-    chown -R appuser:appgroup /app
-
-COPY --from=builder --chown=appuser:appgroup /app/out .
-
-USER appuser
+COPY --from=builder /app/out .
 
 EXPOSE 8080
 
