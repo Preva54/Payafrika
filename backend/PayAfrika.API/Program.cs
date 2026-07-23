@@ -108,6 +108,14 @@ using (var scope = app.Services.CreateScope())
         adminUser.Role = "admin";
         db.SaveChanges();
     }
+
+    var testEmails = new[] { "test@payafrika.com", "demo@test.com" };
+    var testUsers = db.Users.Where(u => testEmails.Contains(u.Email)).ToList();
+    if (testUsers.Count != 0)
+    {
+        db.Users.RemoveRange(testUsers);
+        db.SaveChanges();
+    }
 }
 
 app.Run();
