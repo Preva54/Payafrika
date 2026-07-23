@@ -196,6 +196,54 @@ export const adminApi = {
   cms: () => api.get<{ pages: object[]; blogPosts: object[] }>("/admin/cms"),
 }
 
+export interface PaymentRequestPayload {
+  amount: number
+  currency: string
+  provider: string
+  reference?: string
+  description?: string
+  returnUrl?: string
+  callbackUrl?: string
+}
+
+export interface PaymentResult {
+  success: boolean
+  transactionId: string
+  redirectUrl?: string
+  status?: string
+  errorMessage?: string
+}
+
+export interface Beneficiary {
+  id: string
+  name: string
+  bank: string
+  accountNumber: string
+  country: string
+  currency: string
+  isVerified: boolean
+  isFavorite: boolean
+  avatar?: string
+}
+
+export interface SchedulePayment {
+  id: string
+  beneficiaryId: string
+  beneficiaryName: string
+  amount: number
+  currency: string
+  frequency: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
+  nextDate: string
+  endDate?: string
+  status: "active" | "paused" | "cancelled"
+  description?: string
+}
+
+export const paymentsApi = {
+  initiate: (data: PaymentRequestPayload) => api.post<PaymentResult>("/payments/initiate", data),
+  verify: (provider: string, transactionId: string) => api.get<{ isValid: boolean; transactionId: string; amount: number; currency: string; status: string; customerEmail?: string }>(`/payments/verify/${provider}/${transactionId}`),
+}
+
 export const dashboardApi = {
   loans: () => api.get<LoanResponse[]>("/loans"),
   wallet: () => api.get<WalletResponse>("/wallet"),
