@@ -4,11 +4,11 @@ import { useEffect, useState } from "react"
 import { User } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
-import { authApi, type UserProfile } from "@/lib/api"
+import { authApi, type UserInfo } from "@/lib/api"
 import { Badge } from "@/components/ui/badge"
 
 export default function ProfilePage() {
-  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [profile, setProfile] = useState<UserInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -31,9 +31,9 @@ export default function ProfilePage() {
             <div className="space-y-3"><Skeleton className="h-5 w-48" /><Skeleton className="h-5 w-36" /><Skeleton className="h-5 w-56" /></div>
           ) : profile ? (
             <dl className="space-y-3 text-sm">
-              <div className="flex justify-between"><dt className="text-muted-foreground">Name</dt><dd className="font-medium">{profile.firstName} {profile.lastName}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted-foreground">Name</dt><dd className="font-medium">{profile.fullName}</dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">Email</dt><dd className="font-medium">{profile.email}</dd></div>
-              <div className="flex justify-between"><dt className="text-muted-foreground">Phone</dt><dd className="font-medium">{profile.phoneNumber || "Not set"}</dd></div>
+              <div className="flex justify-between"><dt className="text-muted-foreground">KYC Status</dt><dd><Badge variant={profile.kycStatus === "verified" ? "success" : "secondary"}>{profile.kycStatus ?? "Not submitted"}</Badge></dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">Role</dt><dd><Badge>{profile.role}</Badge></dd></div>
             </dl>
           ) : (
