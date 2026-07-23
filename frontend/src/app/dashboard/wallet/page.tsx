@@ -29,7 +29,7 @@ export default function WalletPage() {
         <Button variant="outline" size="sm" onClick={fetchWallet}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
       </div>
       {loading ? (
-        <Card><CardContent className="p-6"><Skeleton className="h-16 w-32" /><Skeleton className="h-4 w-24 mt-2" /></Skeleton></CardContent></Card>
+        <Card><CardContent className="p-6 space-y-2"><Skeleton className="h-16 w-32" /><Skeleton className="h-4 w-24" /></CardContent></Card>
       ) : (
         <Card>
           <CardHeader><CardTitle>Balance</CardTitle></CardHeader>
