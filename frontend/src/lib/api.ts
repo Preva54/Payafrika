@@ -217,31 +217,61 @@ export interface PaymentResult {
 export interface Beneficiary {
   id: string
   name: string
-  bank: string
-  accountNumber: string
-  country: string
+  bankName?: string
+  accountNumber?: string
+  country?: string
   currency: string
   isVerified: boolean
   isFavorite: boolean
-  avatar?: string
+  createdAt: string
 }
 
 export interface SchedulePayment {
   id: string
-  beneficiaryId: string
+  beneficiaryId?: string
   beneficiaryName: string
   amount: number
   currency: string
-  frequency: "daily" | "weekly" | "monthly" | "quarterly" | "yearly"
+  frequency: string
   nextDate: string
   endDate?: string
-  status: "active" | "paused" | "cancelled"
+  status: string
   description?: string
+  createdAt: string
+}
+
+export interface ExchangeRate {
+  code: string
+  buy: number
+  sell: number
+  name: string
+  flag: string
+  changePercent: number
 }
 
 export const paymentsApi = {
   initiate: (data: PaymentRequestPayload) => api.post<PaymentResult>("/payments/initiate", data),
   verify: (provider: string, transactionId: string) => api.get<{ isValid: boolean; transactionId: string; amount: number; currency: string; status: string; customerEmail?: string }>(`/payments/verify/${provider}/${transactionId}`),
+}
+
+export const beneficiariesApi = {
+  getAll: () => api.get<Beneficiary[]>("/beneficiaries"),
+  get: (id: string) => api.get<Beneficiary>(`/beneficiaries/${id}`),
+  create: (data: Partial<Beneficiary>) => api.post<Beneficiary>("/beneficiaries", data),
+  update: (id: string, data: Partial<Beneficiary>) => api.put<Beneficiary>(`/beneficiaries/${id}`, data),
+  delete: (id: string) => api.delete(`/beneficiaries/${id}`),
+}
+
+export const scheduledPaymentsApi = {
+  getAll: () => api.get<SchedulePayment[]>("/scheduledpayments"),
+  create: (data: Partial<SchedulePayment>) => api.post<SchedulePayment>("/scheduledpayments", data),
+  pause: (id: string) => api.put<SchedulePayment>(`/scheduledpayments/${id}/pause`),
+  resume: (id: string) => api.put<SchedulePayment>(`/scheduledpayments/${id}/resume`),
+  delete: (id: string) => api.delete(`/scheduledpayments/${id}`),
+}
+
+export const exchangeRatesApi = {
+  get: () => api.get<ExchangeRate[]>("/exchangerates"),
 }
 
 export const dashboardApi = {
