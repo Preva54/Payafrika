@@ -94,8 +94,111 @@ export const loansApi = {
     api.post<LoanResponse>("/loans", data),
 }
 
+export interface Transaction {
+  id: string
+  userId: string
+  type: string
+  amount: number
+  currency: string
+  status: string
+  description: string | null
+  reference: string | null
+  createdAt: string
+  completedAt: string | null
+}
+
 export const walletApi = {
   get: () => api.get<WalletResponse>("/wallet"),
   deposit: (amount: number) => api.post<WalletResponse>("/wallet/deposit", amount),
   transactions: () => api.get<Transaction[]>("/wallet/transactions"),
+}
+
+export interface AdminDashboard {
+  totalUsers: number
+  totalLoans: number
+  pendingLoans: number
+  totalTransactions: number
+  totalRevenue: number
+}
+
+export interface AdminUser {
+  id: string
+  fullName: string
+  email: string
+  role: string
+  kycStatus: string
+  createdAt: string
+}
+
+export interface AdminLoan {
+  id: string
+  userName: string
+  userEmail: string
+  amount: number
+  status: string
+  createdAt: string
+}
+
+export interface AdminPayment {
+  id: string
+  userName: string
+  userEmail: string
+  amount: number
+  type: string
+  status: string
+  description: string | null
+  createdAt: string
+}
+
+export interface AdminKyc {
+  id: string
+  fullName: string
+  email: string
+  kycStatus: string | null
+  country: string | null
+  updatedAt: string | null
+}
+
+export interface AdminRoleGroup {
+  role: string
+  count: number
+  users: { id: string; fullName: string; email: string }[]
+}
+
+export interface AdminReports {
+  totalUsers: number
+  totalLoans: number
+  activeLoans: number
+  totalDeposits: number
+  totalWithdrawals: number
+  loanVolume: number
+}
+
+export interface AdminAffiliate {
+  id: string
+  fullName: string
+  email: string
+  country: string | null
+  createdAt: string
+}
+
+export const adminApi = {
+  dashboard: () => api.get<AdminDashboard>("/admin/dashboard"),
+  users: () => api.get<AdminUser[]>("/admin/users"),
+  loans: () => api.get<AdminLoan[]>("/admin/loans"),
+  payments: () => api.get<AdminPayment[]>("/admin/payments"),
+  kyc: () => api.get<AdminKyc[]>("/admin/kyc"),
+  roles: () => api.get<AdminRoleGroup[]>("/admin/roles"),
+  reports: () => api.get<AdminReports>("/admin/reports"),
+  affiliates: () => api.get<AdminAffiliate[]>("/admin/affiliates"),
+  auditLogs: () => api.get<object[]>("/admin/audit-logs"),
+  tickets: () => api.get<object[]>("/admin/tickets"),
+  cms: () => api.get<{ pages: object[]; blogPosts: object[] }>("/admin/cms"),
+}
+
+export const dashboardApi = {
+  loans: () => api.get<LoanResponse[]>("/loans"),
+  wallet: () => api.get<WalletResponse>("/wallet"),
+  transactions: () => api.get<Transaction[]>("/wallet/transactions"),
+  user: () => api.get<UserInfo>("/auth/me"),
 }

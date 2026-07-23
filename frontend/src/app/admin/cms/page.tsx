@@ -1,128 +1,62 @@
 "use client"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { FileText, Edit, Eye, Clock, Globe } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { adminApi } from "@/lib/api"
 
-const pages = [
-  { id: 1, title: "Homepage", slug: "/", status: "published", updated: "2 hours ago", author: "Admin" },
-  { id: 2, title: "Services", slug: "/services", status: "published", updated: "1 day ago", author: "Admin" },
-  { id: 3, title: "About Us", slug: "/about", status: "draft", updated: "3 days ago", author: "Admin" },
-  { id: 4, title: "Blog", slug: "/blog", status: "published", updated: "5 hours ago", author: "Admin" },
-  { id: 5, title: "Careers", slug: "/careers", status: "draft", updated: "1 week ago", author: "Admin" },
-  { id: 6, title: "Privacy Policy", slug: "/privacy", status: "published", updated: "2 weeks ago", author: "Admin" },
-  { id: 7, title: "Terms of Service", slug: "/terms", status: "published", updated: "2 weeks ago", author: "Admin" },
-  { id: 8, title: "FAQ", slug: "/faq", status: "published", updated: "1 month ago", author: "Admin" },
-]
+export default function AdminCmsPage() {
+  const [data, setData] = useState<{ pages: object[]; blogPosts: object[] } | null>(null)
+  const [loading, setLoading] = useState(true)
 
-const blogPosts = [
-  { id: 1, title: "Transforming Cross-Border Trade in Africa", category: "Trade", status: "published", views: "1,847", updated: "3 days ago" },
-  { id: 2, title: "The Future of Digital Payments in Africa", category: "Finance", status: "published", views: "2,341", updated: "1 week ago" },
-  { id: 3, title: "Small Business Guide: Securing Your First Loan", category: "Business", status: "draft", views: "0", updated: "2 weeks ago" },
-  { id: 4, title: "Cryptocurrency in Africa: Opportunities", category: "Crypto", status: "published", views: "1,203", updated: "2 weeks ago" },
-  { id: 5, title: "Import/Export Documentation Guide", category: "Trade", status: "published", views: "892", updated: "3 weeks ago" },
-  { id: 6, title: "Why Digital-First Banking is Winning", category: "Finance", status: "draft", views: "0", updated: "1 month ago" },
-]
+  useEffect(() => {
+    adminApi.cms()
+      .then(setData)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
 
-export default function AdminCMSPage() {
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <div className="space-y-2">{[1,2,3,4].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}</div>
+      </div>
+    )
+  }
+
+  const pages = data?.pages ?? []
+  const blogPosts = data?.blogPosts ?? []
+
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold mb-1">Content Management</h1>
-        <p className="text-muted-foreground">Manage website pages and blog content.</p>
+        <p className="text-muted-foreground">{pages.length} pages &middot; {blogPosts.length} blog posts</p>
       </div>
-
-      <div>
-        <CardHeader className="px-0 pt-0">
-          <CardTitle className="text-lg">Pages</CardTitle>
-        </CardHeader>
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Page</th>
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Slug</th>
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Status</th>
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Updated</th>
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Author</th>
-                    <th className="text-right p-4 text-xs font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {pages.map((page) => (
-                    <tr key={page.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
-                      <td className="p-4 text-sm font-medium">{page.title}</td>
-                      <td className="p-4 text-sm font-mono text-muted-foreground">{page.slug}</td>
-                      <td className="p-4">
-                        <Badge variant={page.status === "published" ? "success" : "secondary"} className="text-[10px] capitalize">{page.status}</Badge>
-                      </td>
-                      <td className="p-4 text-sm text-muted-foreground">{page.updated}</td>
-                      <td className="p-4 text-sm text-muted-foreground">{page.author}</td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button className="h-8 w-8 rounded-lg border border-border flex items-center justify-center hover:bg-secondary"><Edit className="h-4 w-4" /></button>
-                          <button className="h-8 w-8 rounded-lg border border-border flex items-center justify-center hover:bg-secondary"><Eye className="h-4 w-4" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div>
-        <CardHeader className="px-0 pt-0">
-          <CardTitle className="text-lg">Blog Posts</CardTitle>
-        </CardHeader>
-        <Card>
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border">
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Title</th>
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Category</th>
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Status</th>
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Views</th>
-                    <th className="text-left p-4 text-xs font-medium text-muted-foreground">Updated</th>
-                    <th className="text-right p-4 text-xs font-medium text-muted-foreground">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {blogPosts.map((post) => (
-                    <tr key={post.id} className="border-b border-border last:border-0 hover:bg-secondary/30 transition-colors">
-                      <td className="p-4 text-sm font-medium">{post.title}</td>
-                      <td className="p-4"><Badge variant="secondary" className="text-[10px]">{post.category}</Badge></td>
-                      <td className="p-4">
-                        <Badge variant={post.status === "published" ? "success" : "secondary"} className="text-[10px] capitalize">{post.status}</Badge>
-                      </td>
-                      <td className="p-4 text-sm text-muted-foreground">{post.views}</td>
-                      <td className="p-4 text-sm text-muted-foreground">{post.updated}</td>
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <button className="h-8 w-8 rounded-lg border border-border flex items-center justify-center hover:bg-secondary"><Edit className="h-4 w-4" /></button>
-                          <button className="h-8 w-8 rounded-lg border border-border flex items-center justify-center hover:bg-secondary"><Eye className="h-4 w-4" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="flex justify-end gap-3">
-        <Button variant="outline">New Page</Button>
-        <Button variant="gradient">New Blog Post</Button>
-      </div>
+      {pages.length === 0 && blogPosts.length === 0 ? (
+        <div className="text-center py-12 text-muted-foreground text-sm">No content yet</div>
+      ) : (
+        <div className="grid lg:grid-cols-2 gap-6">
+          <div className="space-y-3">
+            <h2 className="font-semibold">Pages ({pages.length})</h2>
+            {pages.map((p: any, i) => (
+              <div key={i} className="p-4 rounded-xl bg-card border border-border">
+                <p className="font-medium text-sm">{p.title ?? "Untitled"}</p>
+                <p className="text-xs text-muted-foreground">{p.status ?? "draft"}</p>
+              </div>
+            ))}
+          </div>
+          <div className="space-y-3">
+            <h2 className="font-semibold">Blog Posts ({blogPosts.length})</h2>
+            {blogPosts.map((b: any, i) => (
+              <div key={i} className="p-4 rounded-xl bg-card border border-border">
+                <p className="font-medium text-sm">{b.title ?? "Untitled"}</p>
+                <p className="text-xs text-muted-foreground">{b.status ?? "draft"}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

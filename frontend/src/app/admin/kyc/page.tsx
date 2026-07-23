@@ -1,112 +1,64 @@
 "use client"
 
+import { useEffect, useState } from "react"
+import { motion } from "framer-motion"
 import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { Check, X, Eye, Download, Search } from "lucide-react"
-import { Input } from "@/components/ui/input"
-import { useState } from "react"
+import { Skeleton } from "@/components/ui/skeleton"
+import { adminApi, type AdminKyc } from "@/lib/api"
 
-const kycApplications = [
-  { id: "1", name: "Amina Diallo", email: "amina@diallo.com", type: "Passport", status: "pending", submitted: "2 hours ago", country: "SN" },
-  { id: "2", name: "John Mwangi", email: "john@mwangi.com", type: "National ID", status: "pending", submitted: "5 hours ago", country: "KE" },
-  { id: "3", name: "Fatima Yusuf", email: "fatima@yusuf.com", type: "Driver's License", status: "pending", submitted: "1 day ago", country: "NG" },
-  { id: "4", name: "David Ochieng", email: "david@ochieng.com", type: "Passport", status: "reviewed", submitted: "2 days ago", country: "KE" },
-  { id: "5", name: "Grace Nkosi", email: "grace@nkosi.com", type: "National ID", status: "pending", submitted: "3 days ago", country: "ZA" },
-  { id: "6", name: "Peter Mensah", email: "peter@mensah.com", type: "Passport", status: "approved", submitted: "1 week ago", country: "GH" },
-  { id: "7", name: "Zara Kone", email: "zara@kone.com", type: "Driver's License", status: "rejected", submitted: "1 week ago", country: "CI" },
-  { id: "8", name: "Samuel Gebre", email: "samuel@gebre.com", type: "National ID", status: "pending", submitted: "1 week ago", country: "ET" },
-]
+export default function AdminKycPage() {
+  const [apps, setApps] = useState<AdminKyc[]>([])
+  const [loading, setLoading] = useState(true)
 
-export default function AdminKYCPage() {
-  const [search, setSearch] = useState("")
-  const [statusFilter, setStatusFilter] = useState("all")
+  useEffect(() => {
+    adminApi.kyc()
+      .then(setApps)
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
 
-  const filtered = kycApplications.filter((k) => {
-    const matchesSearch = k.name.toLowerCase().includes(search.toLowerCase())
-    const matchesStatus = statusFilter === "all" || k.status === statusFilter
-    return matchesSearch && matchesStatus
-  })
+  if (loading) {
+    return (
+      <div className="space-y-4">
+        <Skeleton className="h-8 w-32" />
+        <div className="space-y-2">{[1,2,3,4,5].map((i) => <Skeleton key={i} className="h-16 w-full rounded-xl" />)}</div>
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold mb-1">KYC Verification</h1>
-        <p className="text-muted-foreground">Review and verify identity documents.</p>
+        <p className="text-muted-foreground">{apps.length} applications</p>
       </div>
-
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Search applicants..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
-        </div>
-        <div className="flex gap-2">
-          {["all", "pending", "reviewed", "approved", "rejected"].map((status) => (
-            <button
-              key={status}
-              onClick={() => setStatusFilter(status)}
-              className={`px-3 py-2 rounded-xl text-xs font-medium capitalize transition-all ${
-                statusFilter === status ? "bg-primary text-primary-foreground" : "bg-secondary hover:bg-secondary/80"
-              }`}
+      <div className="space-y-2">
+        {apps.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground text-sm">No KYC applications</div>
+        ) : (
+          apps.map((a, i) => (
+            <motion.div key={a.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: i * 0.03 }}
+              className="flex items-center justify-between p-4 rounded-xl bg-card border border-border hover:shadow-card-hover transition-all"
             >
-              {status}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="grid gap-4">
-        {filtered.map((application) => (
-          <Card key={application.id} className="hover:shadow-card-hover transition-all">
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between flex-wrap gap-4">
-                <div className="flex items-center gap-4">
-                  <Avatar className="h-10 w-10">
-                    <AvatarFallback className="gradient-bg text-white text-xs">
-                      {application.name.split(" ").map(n => n[0]).join("")}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="text-sm font-semibold">{application.name}</p>
-                    <p className="text-xs text-muted-foreground">{application.email}</p>
-                  </div>
+              <div className="flex items-center gap-4">
+                <div className="h-10 w-10 rounded-full gradient-bg flex items-center justify-center text-white font-semibold text-sm">
+                  {a.fullName.charAt(0).toUpperCase()}
                 </div>
-
-                <div className="flex items-center gap-4">
-                  <div className="text-right text-xs">
-                    <p className="text-muted-foreground">Document</p>
-                    <p className="font-medium">{application.type}</p>
-                  </div>
-                  <div className="text-right text-xs">
-                    <p className="text-muted-foreground">Submitted</p>
-                    <p className="font-medium">{application.submitted}</p>
-                  </div>
-                  <Badge
-                    variant={application.status === "approved" ? "success" : application.status === "rejected" ? "destructive" : application.status === "reviewed" ? "default" : "secondary"}
-                    className="text-[10px] capitalize"
-                  >
-                    {application.status}
-                  </Badge>
-                  <div className="flex gap-1">
-                    <button className="h-8 w-8 rounded-lg border border-border flex items-center justify-center hover:bg-secondary" title="View documents">
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button className="h-8 w-8 rounded-lg border border-border flex items-center justify-center hover:bg-secondary" title="Download">
-                      <Download className="h-4 w-4" />
-                    </button>
-                    <button className="h-8 w-8 rounded-lg bg-accent/10 text-accent flex items-center justify-center hover:bg-accent/20" title="Approve">
-                      <Check className="h-4 w-4" />
-                    </button>
-                    <button className="h-8 w-8 rounded-lg bg-destructive/10 text-destructive flex items-center justify-center hover:bg-destructive/20" title="Reject">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
+                <div>
+                  <p className="font-medium text-sm">{a.fullName}</p>
+                  <p className="text-xs text-muted-foreground">{a.email}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        ))}
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-muted-foreground">{a.country ?? "—"}</span>
+                <Badge variant={a.kycStatus === "verified" ? "success" : a.kycStatus === "rejected" ? "destructive" : "secondary"} className="text-[10px]">
+                  {a.kycStatus}
+                </Badge>
+                {a.updatedAt && <span className="text-xs text-muted-foreground">{new Date(a.updatedAt).toLocaleDateString()}</span>}
+              </div>
+            </motion.div>
+          ))
+        )}
       </div>
     </div>
   )

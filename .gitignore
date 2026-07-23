@@ -49,3 +49,6 @@ obj/
 
 # Docker
 .docker/
+
+.vercel
+.env*

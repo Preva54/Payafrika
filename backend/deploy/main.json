@@ -1,0 +1,216 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.45.15.27210",
+      "templateHash": "12857922468098864996"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "westus2",
+      "metadata": {
+        "description": "Location for all resources."
+      }
+    },
+    "namePrefix": {
+      "type": "string",
+      "defaultValue": "payafrika",
+      "metadata": {
+        "description": "Name prefix for all resources."
+      }
+    },
+    "connectionString": {
+      "type": "securestring",
+      "metadata": {
+        "description": "PostgreSQL connection string (e.g. from Neon, Supabase, or Azure)."
+      }
+    },
+    "jwtSecret": {
+      "type": "securestring",
+      "metadata": {
+        "description": "JWT secret key (min 32 chars)."
+      }
+    },
+    "imageUrl": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "GitHub Container Registry image URL (e.g. ghcr.io/your-org/payafrika-backend:latest)"
+      }
+    },
+    "flutterwaveSecretKey": {
+      "type": "securestring",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Payment provider API keys."
+      }
+    },
+    "paystackSecretKey": {
+      "type": "securestring",
+      "defaultValue": ""
+    },
+    "ozowApiKey": {
+      "type": "securestring",
+      "defaultValue": ""
+    },
+    "peachBearerToken": {
+      "type": "securestring",
+      "defaultValue": ""
+    }
+  },
+  "variables": {
+    "envName": "[format('{0}-env', parameters('namePrefix'))]",
+    "containerName": "[format('{0}-api', parameters('namePrefix'))]",
+    "logName": "[format('{0}-logs', parameters('namePrefix'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.OperationalInsights/workspaces",
+      "apiVersion": "2022-10-01",
+      "name": "[variables('logName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "sku": {
+          "name": "PerGB2018"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.App/managedEnvironments",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('envName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "appLogsConfiguration": {
+          "destination": "log-analytics",
+          "logAnalyticsConfiguration": {
+            "customerId": "[reference(resourceId('Microsoft.OperationalInsights/workspaces', variables('logName')), '2022-10-01').customerId]",
+            "sharedKey": "[listKeys(resourceId('Microsoft.OperationalInsights/workspaces', variables('logName')), '2022-10-01').primarySharedKey]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.OperationalInsights/workspaces', variables('logName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.App/containerApps",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('containerName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "managedEnvironmentId": "[resourceId('Microsoft.App/managedEnvironments', variables('envName'))]",
+        "configuration": {
+          "ingress": {
+            "external": true,
+            "targetPort": 8080,
+            "allowInsecure": false,
+            "traffic": [
+              {
+                "latestRevision": true,
+                "weight": 100
+              }
+            ]
+          },
+          "registries": [],
+          "secrets": []
+        },
+        "template": {
+          "containers": [
+            {
+              "name": "api",
+              "image": "[parameters('imageUrl')]",
+              "resources": {
+                "cpu": "[json('0.25')]",
+                "memory": "0.5Gi"
+              },
+              "env": [
+                {
+                  "name": "ASPNETCORE_ENVIRONMENT",
+                  "value": "Production"
+                },
+                {
+                  "name": "ASPNETCORE_URLS",
+                  "value": "http://+:8080"
+                },
+                {
+                  "name": "ConnectionStrings__DefaultConnection",
+                  "value": "[parameters('connectionString')]"
+                },
+                {
+                  "name": "Jwt__SecretKey",
+                  "value": "[parameters('jwtSecret')]"
+                },
+                {
+                  "name": "Jwt__Issuer",
+                  "value": "PayAfrika"
+                },
+                {
+                  "name": "Jwt__Audience",
+                  "value": "PayAfrika"
+                },
+                {
+                  "name": "Jwt__TokenExpirationMinutes",
+                  "value": "60"
+                },
+                {
+                  "name": "Payment__Flutterwave__SecretKey",
+                  "value": "[parameters('flutterwaveSecretKey')]"
+                },
+                {
+                  "name": "Payment__Flutterwave__BaseUrl",
+                  "value": "https://api.flutterwave.com/v3"
+                },
+                {
+                  "name": "Payment__Paystack__SecretKey",
+                  "value": "[parameters('paystackSecretKey')]"
+                },
+                {
+                  "name": "Payment__Paystack__BaseUrl",
+                  "value": "https://api.paystack.co"
+                },
+                {
+                  "name": "Payment__Ozow__ApiKey",
+                  "value": "[parameters('ozowApiKey')]"
+                },
+                {
+                  "name": "Payment__Ozow__BaseUrl",
+                  "value": "https://api.ozow.com"
+                },
+                {
+                  "name": "Payment__Peach__BearerToken",
+                  "value": "[parameters('peachBearerToken')]"
+                },
+                {
+                  "name": "Payment__Peach__BaseUrl",
+                  "value": "https://api.peachpayments.com"
+                },
+                {
+                  "name": "Cors__AllowedOrigins",
+                  "value": "[[\"https://payafrika.vercel.app\",\"https://www.payafrika.vercel.app\"]"
+                }
+              ]
+            }
+          ],
+          "scale": {
+            "minReplicas": 0,
+            "maxReplicas": 1
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.App/managedEnvironments', variables('envName'))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "appUrl": {
+      "type": "string",
+      "value": "[format('https://{0}', reference(resourceId('Microsoft.App/containerApps', variables('containerName')), '2023-05-01').configuration.ingress.fqdn)]"
+    }
+  }
+}

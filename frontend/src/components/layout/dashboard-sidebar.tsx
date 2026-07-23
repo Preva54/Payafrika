@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useAuthStore } from "@/stores/use-auth-store"
 import {
   LayoutDashboard, Wallet, ArrowLeftRight, HandCoins,
   Bell, Settings, User, FileText, HelpCircle, LogOut, CreditCard
@@ -23,6 +24,8 @@ const customerLinks = [
 
 export function DashboardSidebar({ type = "customer" }: { type?: "customer" | "business" | "admin" }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { logout } = useAuthStore()
   const links = customerLinks
 
   return (
@@ -63,13 +66,13 @@ export function DashboardSidebar({ type = "customer" }: { type?: "customer" | "b
       </nav>
 
       <div className="p-3 border-t border-border">
-        <Link
-          href="/auth/login"
-          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all"
+        <button
+          onClick={() => { logout(); router.push("/auth/login") }}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all w-full"
         >
           <LogOut className="h-4 w-4" />
           Sign Out
-        </Link>
+        </button>
       </div>
     </aside>
   )

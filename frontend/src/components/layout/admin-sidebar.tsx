@@ -1,8 +1,9 @@
 "use client"
 
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
+import { useAdminAuthStore } from "@/stores/use-admin-auth-store"
 import {
   LayoutDashboard, Users, HandCoins, CreditCard, Shield, 
   Ticket, FileText, ScrollText, UsersRound, KeyRound,
@@ -57,6 +58,8 @@ const navSections: NavSection[] = [
 
 export function AdminSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
+  const { logout } = useAdminAuthStore()
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -121,17 +124,17 @@ export function AdminSidebar() {
       </nav>
 
       <div className="p-3 border-t border-border">
-        <Link
-          href="/auth/login"
+        <button
+          onClick={() => { logout(); router.push("/admin/login") }}
           className={cn(
-            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200",
+            "flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 w-full",
             "text-muted-foreground hover:text-foreground hover:bg-secondary",
             collapsed && "justify-center px-0"
           )}
         >
           <LogOut className="h-4 w-4 shrink-0" />
           {!collapsed && <span>Sign Out</span>}
-        </Link>
+        </button>
       </div>
     </aside>
   )
