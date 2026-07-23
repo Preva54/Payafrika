@@ -59,8 +59,12 @@ builder.Services.AddScoped<IPaymentProvider, OzowProvider>();
 builder.Services.AddScoped<IPaymentProvider, PeachPaymentsProvider>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 
-var corsOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-    ?? ["http://localhost:3000"];
+var corsRaw = builder.Configuration["Cors:AllowedOrigins"] ?? "";
+var corsOrigins = corsRaw
+    .Trim('[', ']')
+    .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+    .DefaultIfEmpty("http://localhost:3000")
+    .ToArray();
 
 builder.Services.AddCors(options =>
 {
