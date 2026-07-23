@@ -42,55 +42,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata for frontend
-        id: meta-frontend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_FRONTEND }}
-          tags: |
-            type=sha,prefix=,suffix=,format=short
-            type=ref,event=branch
-
-      - name: Extract metadata for backend
-        id: meta-backend
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}
-          tags: |
-            type=sha,prefix=,suffix=,format=short
-            type=ref,event=branch
+      - name: Determine tags
+        id: tags
+        shell: bash
+        run: |
+          FRONTEND_BASE="ghcr.io/preva54/payafrika-frontend"
+          BACKEND_BASE="ghcr.io/preva54/payafrika-backend"
+          SHA_TAG="${GITHUB_SHA::7}"
+          BRANCH_TAG="${GITHUB_REF_NAME}"
+          FRONTEND_TAGS="$FRONTEND_BASE:$SHA_TAG,$FRONTEND_BASE:$BRANCH_TAG"
+          BACKEND_TAGS="$BACKEND_BASE:$SHA_TAG,$BACKEND_BASE:$BRANCH_TAG"
+          if [[ "$GITHUB_REF_NAME" == "main" || "$GITHUB_REF_NAME" == "master" ]]; then
+            FRONTEND_TAGS="$FRONTEND_TAGS,$FRONTEND_BASE:latest"
+            BACKEND_TAGS="$BACKEND_TAGS,$BACKEND_BASE:latest"
+          fi
+          echo "frontend_tags=$FRONTEND_TAGS" >> $GITHUB_OUTPUT
+          echo "backend_tags=$BACKEND_TAGS" >> $GITHUB_OUTPUT
 
       - name: Build & push frontend
-        id: build-frontend
         uses: docker/build-push-action@v6
         with:
           context: frontend
           push: true
-          tags: ${{ steps.meta-frontend.outputs.tags }}
-          labels: ${{ steps.meta-frontend.outputs.labels }}
+          tags: ${{ steps.tags.outputs.frontend_tags }}
           no-cache: true
 
       - name: Build & push backend
-        id: build-backend
         uses: docker/build-push-action@v6
         with:
           context: backend/PayAfrika.API
           push: true
-          tags: ${{ steps.meta-backend.outputs.tags }}
-          labels: ${{ steps.meta-backend.outputs.labels }}
+          tags: ${{ steps.tags.outputs.backend_tags }}
           no-cache: true
-
-      - name: Push latest tags
-        if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
-        shell: bash
-        run: |
-          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-          docker buildx imagetools create \
-            -t ghcr.io/preva54/payafrika-frontend:latest \
-            ghcr.io/preva54/payafrika-frontend@${{ steps.build-frontend.outputs.digest }}
-          docker buildx imagetools create \
-            -t ghcr.io/preva54/payafrika-backend:latest \
-            ghcr.io/preva54/payafrika-backend@${{ steps.build-backend.outputs.digest }}
 
   deploy:
     name: Deploy via SSH
