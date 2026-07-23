@@ -54,6 +54,7 @@ jobs:
 
       - name: Extract metadata for backend
         id: meta-backend
+        id: meta-backend
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME_BACKEND }}

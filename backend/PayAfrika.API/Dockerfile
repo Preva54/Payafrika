@@ -5,7 +5,7 @@ COPY PayAfrika.API.csproj .
 RUN dotnet restore
 
 COPY . .
-RUN dotnet publish -c Release -o out
+RUN dotnet publish -c Release -o out --no-restore
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runner
 WORKDIR /app
