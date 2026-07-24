@@ -61,15 +61,20 @@ export interface UserInfo {
 
 export interface LoanResponse {
   id: string
+  userId: string
   amount: number
   interestRate: number
   termMonths: number
   status: string
   purpose: string | null
+  loanType: string | null
   monthlyPayment: number
   totalPayment: number
   totalInterest: number
+  balance: number
+  paidAmount: number
   createdAt: string
+  approvedAt: string | null
 }
 
 export interface WalletResponse {
@@ -87,11 +92,147 @@ export const authApi = {
   me: () => api.get<UserInfo>("/auth/me"),
 }
 
+export interface LoanOverview {
+  activeLoanAmount: number
+  activeLoanStatus: string
+  activeLoanProgress: number
+  availableCredit: number
+  monthlyRepayment: number
+  nextPaymentDate: string | null
+  creditScore: number
+  creditScoreRating: string
+}
+
+export interface RepaymentScheduleItem {
+  paymentNumber: number
+  dueDate: string
+  principal: number
+  interest: number
+  fees: number
+  total: number
+  balanceAfter: number
+  status: string
+}
+
+export interface CreditFactor {
+  name: string
+  score: number
+  maxScore: number
+  status: string
+  tip: string | null
+}
+
+export interface ScoreHistoryPoint {
+  date: string
+  score: number
+}
+
+export interface Recommendation {
+  title: string
+  description: string
+  impact: string
+}
+
+export interface CreditScoreResponse {
+  score: number
+  rating: string
+  nextMilestone: string | null
+  scoreToNextMilestone: number | null
+  factors: CreditFactor[]
+  history: ScoreHistoryPoint[]
+  recommendations: Recommendation[]
+}
+
+export interface EligibilityRequest {
+  monthlyIncome: number
+  employmentStatus: string
+  businessRevenue?: number
+  existingDebt?: number
+  creditScore?: number
+  loanPurpose: string
+  loanAmount: number
+  loanTermMonths: number
+}
+
+export interface EligibilityResponse {
+  eligibilityPercentage: number
+  maximumLoanAmount: number
+  estimatedInterestRate: number
+  monthlyInstallment: number
+  approvalProbability: number
+  estimatedProcessingTime: string
+  requiredDocuments: string[]
+}
+
+export interface CalculatorRequest {
+  loanAmount: number
+  interestRate: number
+  durationMonths: number
+  paymentFrequency: string
+  processingFee?: number
+  insuranceAmount?: number
+}
+
+export interface CalculatorResponse {
+  monthlyRepayment: number
+  totalRepayment: number
+  totalInterest: number
+  processingFee: number
+  insurance: number
+  earlySettlementAmount: number
+  repaymentSchedule: RepaymentScheduleItem[]
+}
+
+export interface LoanPaymentRequest {
+  loanId: string
+  amount: number
+  paymentMethod: string
+}
+
+export interface LoanNotification {
+  id: string
+  title: string
+  message: string
+  type: string
+  read: boolean
+  createdAt: string
+}
+
+export interface LoanAnalytics {
+  borrowingHistory: { label: string; value: number }[]
+  repaymentTrend: { label: string; value: number }[]
+  totalInterestPaid: number
+  totalPrincipalPaid: number
+  creditGrowth: number
+  loanUtilization: number
+  interestPaid: { label: string; value: number }[]
+  principalPaid: { label: string; value: number }[]
+}
+
+export interface LoanDocument {
+  id: string
+  name: string
+  type: string
+  status: string
+  uploadedAt: string
+  url: string | null
+  size: number
+}
+
 export const loansApi = {
   getAll: () => api.get<LoanResponse[]>("/loans"),
   getById: (id: string) => api.get<LoanResponse>(`/loans/${id}`),
-  apply: (data: { amount: number; interestRate: number; termMonths: number; purpose?: string }) =>
+  apply: (data: { amount: number; interestRate: number; termMonths: number; purpose?: string; loanType?: string }) =>
     api.post<LoanResponse>("/loans", data),
+  overview: () => api.get<LoanOverview>("/loans/overview"),
+  getRepaymentSchedule: (id: string) => api.get<RepaymentScheduleItem[]>(`/loans/${id}/repayment-schedule`),
+  creditScore: () => api.get<CreditScoreResponse>("/loans/credit-score"),
+  eligibility: (data: EligibilityRequest) => api.post<EligibilityResponse>("/loans/eligibility", data),
+  calculate: (data: CalculatorRequest) => api.post<CalculatorResponse>("/loans/calculator", data),
+  makePayment: (data: LoanPaymentRequest) => api.post<LoanResponse>("/loans/payment", data),
+  notifications: () => api.get<LoanNotification[]>("/loans/notifications"),
+  analytics: () => api.get<LoanAnalytics>("/loans/analytics"),
+  documents: () => api.get<LoanDocument[]>("/loans/documents"),
 }
 
 export interface Transaction {
