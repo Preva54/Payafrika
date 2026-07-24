@@ -98,6 +98,35 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
 
+    db.Database.ExecuteSqlRaw($@"
+        CREATE TABLE IF NOT EXISTS ""Beneficiaries"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id""),
+            ""Name"" VARCHAR(200) NOT NULL,
+            ""BankName"" VARCHAR(200) NULL,
+            ""AccountNumber"" VARCHAR(50) NULL,
+            ""Country"" VARCHAR(100) NULL,
+            ""Currency"" VARCHAR(3) NOT NULL DEFAULT 'ZAR',
+            ""IsVerified"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""IsFavorite"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE TABLE IF NOT EXISTS ""ScheduledPayments"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id""),
+            ""BeneficiaryId"" UUID NULL,
+            ""BeneficiaryName"" VARCHAR(200) NOT NULL,
+            ""Amount"" DECIMAL(18,2) NOT NULL,
+            ""Currency"" VARCHAR(3) NOT NULL DEFAULT 'ZAR',
+            ""Frequency"" VARCHAR(20) NOT NULL DEFAULT 'monthly',
+            ""NextDate"" TIMESTAMPTZ NOT NULL,
+            ""EndDate"" TIMESTAMPTZ NULL,
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'active',
+            ""Description"" VARCHAR(500) NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+    ");
+
     var adminEmail = builder.Configuration["AdminEmail"]
         ?? Environment.GetEnvironmentVariable("NEXT_PUBLIC_ADMIN_EMAIL")
         ?? "meetpeterosakwe@gmail.com";
