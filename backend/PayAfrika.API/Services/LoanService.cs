@@ -213,7 +213,7 @@ public class LoanService : ILoanService
 
         return new EligibilityResponse
         {
-            EligibilityPercentage = Math.Round(totalScore, 1),
+            EligibilityPercentage = Math.Round((decimal)totalScore, 1),
             MaximumLoanAmount = Math.Round(maxLoan, 2),
             EstimatedInterestRate = Math.Round(interestRate, 2),
             MonthlyInstallment = Math.Round(monthlyInstallment, 2),
