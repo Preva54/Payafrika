@@ -125,6 +125,9 @@ using (var scope = app.Services.CreateScope())
             ""Description"" VARCHAR(500) NULL,
             ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE ""Loans"" ADD COLUMN IF NOT EXISTS ""LoanType"" VARCHAR(50) NOT NULL DEFAULT 'personal';
+        ALTER TABLE ""Loans"" ADD COLUMN IF NOT EXISTS ""Balance"" DECIMAL(18,2) NOT NULL DEFAULT 0;
+        ALTER TABLE ""Loans"" ADD COLUMN IF NOT EXISTS ""PaidAmount"" DECIMAL(18,2) NOT NULL DEFAULT 0;
     ");
 
     var adminEmail = builder.Configuration["AdminEmail"]
