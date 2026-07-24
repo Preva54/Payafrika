@@ -3,7 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace PayAfrika.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/exchangerates")]
+[ApiExplorerSettings(IgnoreApi = false)]
 public class ExchangeRatesController : ControllerBase
 {
     private static readonly List<ExchangeRate> Rates =

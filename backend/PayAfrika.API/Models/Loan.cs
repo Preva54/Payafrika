@@ -15,8 +15,11 @@ public class Loan
 
     public int TermMonths { get; set; }
 
+    [MaxLength(50)]
+    public string LoanType { get; set; } = "personal";
+
     [Required, MaxLength(50)]
-    public string Status { get; set; } = "pending"; // pending, approved, active, rejected, paid
+    public string Status { get; set; } = "pending"; // pending, approved, active, rejected, paid, defaulted, under_review
 
     [MaxLength(500)]
     public string? Purpose { get; set; }
@@ -24,6 +27,8 @@ public class Loan
     public decimal MonthlyPayment { get; set; }
     public decimal TotalPayment { get; set; }
     public decimal TotalInterest { get; set; }
+    public decimal Balance { get; set; }
+    public decimal PaidAmount { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? ApprovedAt { get; set; }
