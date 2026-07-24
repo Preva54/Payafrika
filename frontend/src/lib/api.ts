@@ -84,6 +84,92 @@ export interface WalletResponse {
   balance: number
 }
 
+export interface WalletOverviewResponse {
+  totalBalance: number
+  availableBalance: number
+  pendingBalance: number
+  monthlyCashFlow: number
+  monthlyIncome: number
+  monthlySpending: number
+}
+
+export interface CurrencyWalletResponse {
+  currency: string
+  flag: string
+  balance: number
+  zarValue: number
+  changePercent: number
+  miniGraph: number[]
+}
+
+export interface WalletAnalyticsResponse {
+  incomeVsExpenses: { label: string; value: number }[]
+  monthlyBalance: { label: string; value: number }[]
+  spendingCategories: { label: string; value: number }[]
+  topRecipients: { label: string; value: number }[]
+  averageTransaction: number
+  largestTransaction: number
+  cashFlow: number
+}
+
+export interface SpendingInsightResponse {
+  message: string
+  type: string
+  recommendations: { title: string; description: string; action: string }[]
+}
+
+export interface LinkedBankResponse {
+  id: string
+  bankName: string
+  accountName: string
+  accountNumber: string
+  isVerified: boolean
+  isPrimary: boolean
+}
+
+export interface WalletNotificationResponse {
+  id: string
+  title: string
+  message: string
+  type: string
+  read: boolean
+  createdAt: string
+}
+
+export interface SecurityInfoResponse {
+  loginHistory: { id: string; device: string; location: string; ip: string; time: string; isCurrent: boolean }[]
+  activeDevices: { id: string; name: string; type: string; lastActive: string }[]
+  biometricEnabled: boolean
+  twoFactorEnabled: boolean
+  securityScore: number
+  trustedDevices: string[]
+}
+
+export interface CardResponse {
+  id: string
+  type: string
+  lastFour: string
+  expiry: string
+  isFrozen: boolean
+  isVirtual: boolean
+  limit: number | null
+}
+
+export interface ExchangeRateResponse {
+  from: string
+  to: string
+  rate: number
+  spread: number
+  lastUpdated: string
+}
+
+export interface QRResponse {
+  qrCode: string
+  paymentLink: string
+  walletAddress: string
+  accountNumber: string
+}
+
 export const authApi = {
   register: (data: { fullName: string; email: string; password: string; phoneNumber?: string; country?: string; role?: string }) =>
     api.post<AuthResponse>("/auth/register", data),
@@ -250,8 +336,29 @@ export interface Transaction {
 
 export const walletApi = {
   get: () => api.get<WalletResponse>("/wallet"),
-  deposit: (amount: number) => api.post<WalletResponse>("/wallet/deposit", amount),
-  transactions: () => api.get<Transaction[]>("/wallet/transactions"),
+  deposit: (amount: number, currency = "ZAR", method?: string, description?: string) =>
+    api.post<WalletResponse>("/wallet/deposit", { amount, currency, method, description }),
+  withdraw: (amount: number, currency = "ZAR", method?: string, description?: string) =>
+    api.post<WalletResponse>("/wallet/withdraw", { amount, currency, method, description }),
+  transfer: (amount: number, fromCurrency: string, toCurrency: string, recipient?: string) =>
+    api.post<{ fromAmount: number; toAmount: number; fromCurrency: string; toCurrency: string }>("/wallet/transfer", { amount, fromCurrency, toCurrency, recipient }),
+  exchange: (amount: number, fromCurrency: string, toCurrency: string) =>
+    api.post<{ fromAmount: number; toAmount: number; fee: number; rate: number; fromCurrency: string; toCurrency: string }>("/wallet/exchange", { amount, fromCurrency, toCurrency }),
+  overview: () => api.get<WalletOverviewResponse>("/wallet/overview"),
+  balances: () => api.get<CurrencyWalletResponse[]>("/wallet/balances"),
+  analytics: () => api.get<WalletAnalyticsResponse>("/wallet/analytics"),
+  insights: () => api.get<SpendingInsightResponse[]>("/wallet/insights"),
+  notifications: () => api.get<WalletNotificationResponse[]>("/wallet/notifications"),
+  transactions: (page = 1, limit = 20) => api.get<Transaction[]>(`/wallet/transactions?page=${page}&limit=${limit}`),
+  linkedBanks: () => api.get<LinkedBankResponse[]>("/wallet/linked-banks"),
+  linkBank: (data: { bankName: string; accountName: string; accountNumber: string }) =>
+    api.post<LinkedBankResponse>("/wallet/linked-banks", data),
+  unlinkBank: (id: string) => api.delete(`/wallet/linked-banks/${id}`),
+  exchangeRates: () => api.get<ExchangeRateResponse[]>("/wallet/exchange-rates"),
+  security: () => api.get<SecurityInfoResponse>("/wallet/security"),
+  cards: () => api.get<CardResponse[]>("/wallet/cards"),
+  qr: (amount?: number, currency = "ZAR", description?: string) =>
+    api.get<QRResponse>(`/wallet/qr?amount=${amount ?? 0}&currency=${currency}&description=${description ?? ""}`),
 }
 
 export interface AdminDashboard {

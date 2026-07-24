@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     public DbSet<Transaction> Transactions => Set<Transaction>();
     public DbSet<Beneficiary> Beneficiaries => Set<Beneficiary>();
     public DbSet<ScheduledPayment> ScheduledPayments => Set<ScheduledPayment>();
+    public DbSet<WalletBalance> WalletBalances => Set<WalletBalance>();
+    public DbSet<LinkedBank> LinkedBanks => Set<LinkedBank>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -50,6 +52,21 @@ public class AppDbContext : DbContext
             entity.HasOne(s => s.User)
                   .WithMany(u => u.ScheduledPayments)
                   .HasForeignKey(s => s.UserId);
+        });
+
+        modelBuilder.Entity<WalletBalance>(entity =>
+        {
+            entity.HasOne(wb => wb.User)
+                  .WithMany(u => u.WalletBalances)
+                  .HasForeignKey(wb => wb.UserId);
+            entity.HasIndex(wb => new { wb.UserId, wb.Currency }).IsUnique();
+        });
+
+        modelBuilder.Entity<LinkedBank>(entity =>
+        {
+            entity.HasOne(lb => lb.User)
+                  .WithMany(u => u.LinkedBanks)
+                  .HasForeignKey(lb => lb.UserId);
         });
     }
 }

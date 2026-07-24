@@ -35,4 +35,6 @@ public class User
     public ICollection<Transaction> Transactions { get; set; } = new List<Transaction>();
     public ICollection<Beneficiary> Beneficiaries { get; set; } = new List<Beneficiary>();
     public ICollection<ScheduledPayment> ScheduledPayments { get; set; } = new List<ScheduledPayment>();
+    public ICollection<WalletBalance> WalletBalances { get; set; } = new List<WalletBalance>();
+    public ICollection<LinkedBank> LinkedBanks { get; set; } = new List<LinkedBank>();
 }
