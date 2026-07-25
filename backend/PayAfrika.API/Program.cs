@@ -334,6 +334,99 @@ using (var scope = app.Services.CreateScope())
             ""UpdatedAt"" TIMESTAMPTZ NULL
         );
         CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Integrations_UserId_Provider"" ON ""Integrations""(""UserId"", ""Provider"");
+
+        CREATE TABLE IF NOT EXISTS ""SupportTickets"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Subject"" VARCHAR(300) NOT NULL,
+            ""Description"" TEXT NOT NULL,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'open',
+            ""Priority"" VARCHAR(20) NOT NULL DEFAULT 'medium',
+            ""Category"" VARCHAR(100) NOT NULL DEFAULT 'general',
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""AssignedToId"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""ResolvedAt"" TIMESTAMPTZ NULL,
+            ""ClosedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_SupportTickets_UserId"" ON ""SupportTickets""(""UserId"");
+        CREATE INDEX IF NOT EXISTS ""IX_SupportTickets_Status"" ON ""SupportTickets""(""Status"");
+        CREATE INDEX IF NOT EXISTS ""IX_SupportTickets_Category"" ON ""SupportTickets""(""Category"");
+        CREATE INDEX IF NOT EXISTS ""IX_SupportTickets_CreatedAt"" ON ""SupportTickets""(""CreatedAt"");
+
+        CREATE TABLE IF NOT EXISTS ""ChatMessages"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""TicketId"" UUID NOT NULL REFERENCES ""SupportTickets""(""Id"") ON DELETE CASCADE,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""Content"" TEXT NOT NULL,
+            ""IsFromAgent"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""IsInternalNote"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""ReadAt"" TIMESTAMPTZ NULL
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_ChatMessages_TicketId"" ON ""ChatMessages""(""TicketId"");
+        CREATE INDEX IF NOT EXISTS ""IX_ChatMessages_UserId"" ON ""ChatMessages""(""UserId"");
+
+        CREATE TABLE IF NOT EXISTS ""ChatAttachments"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""MessageId"" UUID NOT NULL REFERENCES ""ChatMessages""(""Id"") ON DELETE CASCADE,
+            ""FileName"" VARCHAR(300) NOT NULL,
+            ""FileUrl"" VARCHAR(500) NOT NULL,
+            ""MimeType"" VARCHAR(100) NOT NULL,
+            ""FileSize"" BIGINT NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_ChatAttachments_MessageId"" ON ""ChatAttachments""(""MessageId"");
+
+        CREATE TABLE IF NOT EXISTS ""TicketAttachments"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""TicketId"" UUID NOT NULL REFERENCES ""SupportTickets""(""Id"") ON DELETE CASCADE,
+            ""FileName"" VARCHAR(300) NOT NULL,
+            ""FileUrl"" VARCHAR(500) NOT NULL,
+            ""MimeType"" VARCHAR(100) NOT NULL,
+            ""FileSize"" BIGINT NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_TicketAttachments_TicketId"" ON ""TicketAttachments""(""TicketId"");
+
+        CREATE TABLE IF NOT EXISTS ""TicketSatisfactions"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""TicketId"" UUID NOT NULL REFERENCES ""SupportTickets""(""Id"") ON DELETE CASCADE,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""Rating"" INTEGER NOT NULL CHECK (""Rating"" >= 1 AND ""Rating"" <= 5),
+            ""Comment"" VARCHAR(2000) NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_TicketSatisfactions_TicketId_UserId"" ON ""TicketSatisfactions""(""TicketId"", ""UserId"");
+
+        CREATE TABLE IF NOT EXISTS ""KnowledgeBaseArticles"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Title"" VARCHAR(300) NOT NULL,
+            ""Slug"" VARCHAR(500) NOT NULL,
+            ""Content"" TEXT NOT NULL,
+            ""Excerpt"" VARCHAR(1000) NOT NULL DEFAULT '',
+            ""Category"" VARCHAR(100) NOT NULL DEFAULT 'general',
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'draft',
+            ""IsFeatured"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""ViewCount"" INTEGER NOT NULL DEFAULT 0,
+            ""HelpfulCount"" INTEGER NOT NULL DEFAULT 0,
+            ""NotHelpfulCount"" INTEGER NOT NULL DEFAULT 0,
+            ""AuthorId"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""PublishedAt"" TIMESTAMPTZ NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS ""SupportCategories"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Name"" VARCHAR(100) NOT NULL,
+            ""Key"" VARCHAR(50) NOT NULL,
+            ""Description"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""Icon"" VARCHAR(50) NOT NULL DEFAULT 'HelpCircle',
+            ""Color"" VARCHAR(10) NOT NULL DEFAULT '#0057FF',
+            ""DisplayOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE
+        );
     ");
 
     var adminEmail = builder.Configuration["AdminEmail"]
