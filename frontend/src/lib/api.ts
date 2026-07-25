@@ -701,3 +701,274 @@ export const adminSupportApi = {
   addMessage: (id: string, data: SendMessageRequest) => api.post<ChatMessage>(`/support/tickets/${id}/messages`, data),
   getStats: () => api.get<TicketStats>("/support/stats"),
 };
+
+// ──────────────────────────────────────────────
+// Settings
+// ──────────────────────────────────────────────
+
+export interface ProfileSettings {
+  id: string;
+  fullName: string;
+  email: string;
+  displayName?: string;
+  phoneNumber?: string;
+  country?: string;
+  city?: string;
+  address?: string;
+  postalCode?: string;
+  occupation?: string;
+  dateOfBirth?: string;
+  avatarUrl?: string;
+  role: string;
+  kycStatus?: string;
+  isEmailVerified: boolean;
+  createdAt: string;
+}
+
+export interface SecuritySettings {
+  twoFactorEnabled: boolean;
+  biometricEnabled: boolean;
+  hasPasskeys: boolean;
+  recoveryCodes: string[];
+  loginNotifications: boolean;
+  autoLogoutMinutes: number;
+  hasSecurityQuestions: boolean;
+}
+
+export interface TwoFactorSetup {
+  secretKey: string;
+  qrCodeUrl: string;
+  recoveryCodes: string[];
+}
+
+export interface NotificationPreferences {
+  channels: Record<string, Record<string, boolean>>;
+}
+
+export interface BusinessProfileSettings {
+  id?: string;
+  businessName?: string;
+  registrationNumber?: string;
+  vatNumber?: string;
+  industry?: string;
+  companyAddress?: string;
+  website?: string;
+  businessDescription?: string;
+  logoUrl?: string;
+  directors?: string;
+  bankAccountDetails?: string;
+  settlementPreference?: string;
+  documents?: string;
+}
+
+export interface WalletSettings {
+  defaultCurrency?: string;
+  autoCurrencyConversion: boolean;
+  autoSettlement: boolean;
+  dailyLimit?: number;
+  monthlyLimit?: number;
+  autoTopUp: boolean;
+  autoTopUpThreshold?: number;
+  autoTopUpAmount?: number;
+}
+
+export interface PaymentMethod {
+  id: string;
+  type: string;
+  lastFour?: string;
+  expiry?: string;
+  cardholderName?: string;
+  isDefault: boolean;
+  isVerified: boolean;
+  createdAt: string;
+}
+
+export interface ApiKeyItem {
+  id: string;
+  name: string;
+  keyPreview: string;
+  environment: string;
+  scopes: string[];
+  allowedDomains: string[];
+  callbackUrls: string[];
+  webhookUrl?: string;
+  isActive: boolean;
+  createdAt: string;
+  lastUsedAt?: string;
+}
+
+export interface CreateApiKeyResult {
+  id: string;
+  name: string;
+  key: string;
+  secret: string;
+  environment: string;
+}
+
+export interface TeamMemberItem {
+  id: string;
+  memberEmail: string;
+  role: string;
+  permissions: string[];
+  status: string;
+  invitedAt: string;
+  acceptedAt?: string;
+}
+
+export interface ConnectedDeviceItem {
+  id: string;
+  deviceName: string;
+  deviceType: string;
+  browser?: string;
+  os?: string;
+  ipAddress?: string;
+  location?: string;
+  isTrusted: boolean;
+  isCurrent: boolean;
+  lastActiveAt: string;
+  createdAt: string;
+}
+
+export interface ActivityLogItem {
+  id: string;
+  action: string;
+  category: string;
+  details?: Record<string, unknown>;
+  ipAddress?: string;
+  createdAt: string;
+}
+
+export interface IntegrationItem {
+  id: string;
+  provider: string;
+  isConnected: boolean;
+  permissions: string[];
+  syncStatus: string;
+  lastSyncedAt?: string;
+  createdAt: string;
+}
+
+export interface BillingInfo {
+  plan: string;
+  billingEmail?: string;
+  billingAddress?: string;
+  taxId?: string;
+  autoRenew: boolean;
+  nextBillingDate?: string;
+  invoices: InvoiceItem[];
+}
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  amount: number;
+  currency: string;
+  status: string;
+  createdAt: string;
+  pdfUrl?: string;
+}
+
+export interface AppearanceSettings {
+  theme: string;
+  accentColor: string;
+  dashboardLayout: string;
+  sidebarStyle: string;
+  compactMode: boolean;
+  animationIntensity: string;
+  fontSize: string;
+}
+
+export interface LanguageRegionSettings {
+  language: string;
+  currency: string;
+  dateFormat: string;
+  timeFormat: string;
+  timeZone: string;
+  numberFormat: string;
+}
+
+export interface PrivacySettings {
+  dataSharing: boolean;
+  marketingEmails: boolean;
+  analyticsPermissions: boolean;
+  personalizedRecommendations: boolean;
+  profileVisibility: boolean;
+}
+
+export interface AccountPreferences {
+  defaultLandingPage?: string;
+  startupPage?: string;
+  preferredPaymentMethod?: string;
+  defaultWallet?: string;
+  favoriteServices?: string;
+}
+
+export const settingsApi = {
+  getProfile: () => api.get<ProfileSettings>("/settings/profile"),
+  updateProfile: (data: Partial<ProfileSettings>) => api.put<ProfileSettings>("/settings/profile", data),
+  updateAvatar: (avatarUrl: string) => api.post<ProfileSettings>("/settings/profile/avatar", { avatarUrl }),
+
+  getSecurity: () => api.get<SecuritySettings>("/settings/security"),
+  changePassword: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => api.put("/settings/security/password", data),
+  toggleTwoFactor: (data: { enabled: boolean; code?: string }) => api.put("/settings/security/two-factor", data),
+  setupTwoFactor: () => api.post<TwoFactorSetup>("/settings/security/two-factor/setup"),
+
+  getNotifications: () => api.get<NotificationPreferences>("/settings/notifications"),
+  updateNotification: (data: { category: string; channel: string; enabled: boolean }) => api.put("/settings/notifications", data),
+
+  getBusiness: () => api.get<BusinessProfileSettings>("/settings/business"),
+  updateBusiness: (data: Partial<BusinessProfileSettings>) => api.put<BusinessProfileSettings>("/settings/business", data),
+
+  getWalletSettings: () => api.get<WalletSettings>("/settings/wallet"),
+  updateWalletSettings: (data: WalletSettings) => api.put("/settings/wallet", data),
+
+  getPaymentMethods: () => api.get<PaymentMethod[]>("/settings/payment-methods"),
+  removePaymentMethod: (id: string) => api.delete(`/settings/payment-methods/${id}`),
+
+  getApiKeys: () => api.get<ApiKeyItem[]>("/settings/api-keys"),
+  createApiKey: (data: { name: string; environment: string; scopes?: string[]; allowedDomains?: string[]; callbackUrls?: string[]; webhookUrl?: string }) =>
+    api.post<CreateApiKeyResult>("/settings/api-keys", data),
+  deleteApiKey: (id: string) => api.delete(`/settings/api-keys/${id}`),
+
+  getTeam: () => api.get<TeamMemberItem[]>("/settings/team"),
+  inviteMember: (data: { memberEmail: string; role: string; permissions?: string[] }) =>
+    api.post<TeamMemberItem>("/settings/team/invite", data),
+  updateMember: (id: string, data: { role?: string; permissions?: string[]; status?: string }) =>
+    api.put<TeamMemberItem>(`/settings/team/${id}`, data),
+  removeMember: (id: string) => api.delete(`/settings/team/${id}`),
+
+  getDevices: () => api.get<ConnectedDeviceItem[]>("/settings/devices"),
+  toggleTrustDevice: (id: string) => api.put(`/settings/devices/${id}/trust`),
+  removeDevice: (id: string) => api.delete(`/settings/devices/${id}`),
+  removeAllDevices: () => api.delete("/settings/devices"),
+
+  getActivityLogs: (page?: number, limit?: number, category?: string) => {
+    const params = new URLSearchParams();
+    if (page) params.set("page", String(page));
+    if (limit) params.set("limit", String(limit));
+    if (category) params.set("category", category);
+    return api.get<ActivityLogItem[]>(`/settings/activity?${params.toString()}`);
+  },
+
+  getIntegrations: () => api.get<IntegrationItem[]>("/settings/integrations"),
+  connectIntegration: (provider: string) => api.post<IntegrationItem>(`/settings/integrations/${provider}/connect`),
+  disconnectIntegration: (provider: string) => api.post(`/settings/integrations/${provider}/disconnect`),
+
+  getBilling: () => api.get<BillingInfo>("/settings/billing"),
+  updateBilling: (data: Partial<BillingInfo>) => api.put("/settings/billing", data),
+
+  getAppearance: () => api.get<AppearanceSettings>("/settings/appearance"),
+  updateAppearance: (data: AppearanceSettings) => api.put("/settings/appearance", data),
+
+  getLanguageRegion: () => api.get<LanguageRegionSettings>("/settings/language-region"),
+  updateLanguageRegion: (data: LanguageRegionSettings) => api.put("/settings/language-region", data),
+
+  getPrivacy: () => api.get<PrivacySettings>("/settings/privacy"),
+  updatePrivacy: (data: PrivacySettings) => api.put("/settings/privacy", data),
+
+  getAccountPreferences: () => api.get<AccountPreferences>("/settings/preferences"),
+  updateAccountPreferences: (data: AccountPreferences) => api.put("/settings/preferences", data),
+
+  deleteAccount: (data: { password: string; twoFactorCode?: string; downloadData: boolean }) =>
+    api.post("/settings/delete-account", data),
+};

@@ -1,45 +1,65 @@
 "use client"
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useState, useCallback } from "react"
+import { SettingsSidebar } from "@/components/settings/SettingsSidebar"
+import { ProfileSection } from "@/components/settings/sections/ProfileSection"
+import { SecuritySection } from "@/components/settings/sections/SecuritySection"
+import { NotificationsSection } from "@/components/settings/sections/NotificationsSection"
+import { WalletSection } from "@/components/settings/sections/WalletSection"
+import { PaymentMethodsSection } from "@/components/settings/sections/PaymentMethodsSection"
+import { BusinessSection } from "@/components/settings/sections/BusinessSection"
+import { ApiKeysSection } from "@/components/settings/sections/ApiKeysSection"
+import { TeamSection } from "@/components/settings/sections/TeamSection"
+import { PrivacySection } from "@/components/settings/sections/PrivacySection"
+import { IntegrationsSection } from "@/components/settings/sections/IntegrationsSection"
+import { BillingSection } from "@/components/settings/sections/BillingSection"
+import { AppearanceSection } from "@/components/settings/sections/AppearanceSection"
+import { LanguageRegionSection } from "@/components/settings/sections/LanguageRegionSection"
+import { DevicesSection } from "@/components/settings/sections/DevicesSection"
+import { ActivityLogsSection } from "@/components/settings/sections/ActivityLogsSection"
+import { PreferencesSection } from "@/components/settings/sections/PreferencesSection"
+import { DeleteAccountSection } from "@/components/settings/sections/DeleteAccountSection"
+import { motion, AnimatePresence } from "framer-motion"
+
+const sections: Record<string, React.ReactNode> = {
+  profile: <ProfileSection />,
+  security: <SecuritySection />,
+  notifications: <NotificationsSection />,
+  wallet: <WalletSection />,
+  "payment-methods": <PaymentMethodsSection />,
+  business: <BusinessSection />,
+  "api-keys": <ApiKeysSection />,
+  team: <TeamSection />,
+  privacy: <PrivacySection />,
+  integrations: <IntegrationsSection />,
+  billing: <BillingSection />,
+  appearance: <AppearanceSection />,
+  "language-region": <LanguageRegionSection />,
+  devices: <DevicesSection />,
+  activity: <ActivityLogsSection />,
+  preferences: <PreferencesSection />,
+  delete: <DeleteAccountSection />,
+}
 
 export default function SettingsPage() {
+  const [activeSection, setActiveSection] = useState("profile")
+
   return (
-    <div className="space-y-6">
-      <h1 className="text-2xl font-bold">Settings</h1>
-      <Tabs defaultValue="general">
-        <TabsList>
-          <TabsTrigger value="general">General</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-        </TabsList>
-        <TabsContent value="general" className="mt-4 space-y-4">
-          <Card>
-            <CardHeader><CardTitle>Profile Information</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid sm:grid-cols-2 gap-4">
-                <div className="space-y-2"><label className="text-sm font-medium">First Name</label><Input placeholder="John" /></div>
-                <div className="space-y-2"><label className="text-sm font-medium">Last Name</label><Input placeholder="Doe" /></div>
-              </div>
-              <div className="space-y-2"><label className="text-sm font-medium">Email</label><Input type="email" placeholder="john@example.com" /></div>
-              <Button variant="gradient">Save Changes</Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        <TabsContent value="security" className="mt-4">
-          <Card><CardHeader><CardTitle>Change Password</CardTitle></CardHeader><CardContent className="space-y-4">
-            <Input type="password" placeholder="Current password" />
-            <Input type="password" placeholder="New password" />
-            <Input type="password" placeholder="Confirm new password" />
-            <Button variant="gradient">Update Password</Button>
-          </CardContent></Card>
-        </TabsContent>
-        <TabsContent value="notifications" className="mt-4">
-          <Card><CardContent className="text-center py-8 text-muted-foreground">Notification preferences coming soon.</CardContent></Card>
-        </TabsContent>
-      </Tabs>
+    <div className="flex gap-6">
+      <SettingsSidebar activeSection={activeSection} onSectionChange={setActiveSection} />
+      <div className="flex-1 min-w-0">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeSection}
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2 }}
+          >
+            {sections[activeSection] || <ProfileSection />}
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   )
 }

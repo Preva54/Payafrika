@@ -22,25 +22,7 @@ const nextConfig: NextConfig = {
     maxInactiveAge: 120 * 1000,
     pagesBufferLength: 5,
   },
-  webpack: (config, { dev, isServer }) => {
-    if (dev) {
-      config.cache = {
-        type: "filesystem",
-        compressionLevel: 3,
-      }
-    }
-
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-      }
-    }
-
-    return config
-  },
+  turbopack: {},
 }
 
 export default nextConfig;

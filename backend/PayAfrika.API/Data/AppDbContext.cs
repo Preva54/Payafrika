@@ -24,6 +24,13 @@ public class AppDbContext : DbContext
     public DbSet<KnowledgeBaseArticle> KnowledgeBaseArticles => Set<KnowledgeBaseArticle>();
     public DbSet<SupportCategory> SupportCategories => Set<SupportCategory>();
     public DbSet<Card> Cards => Set<Card>();
+    public DbSet<BusinessProfile> BusinessProfiles => Set<BusinessProfile>();
+    public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
+    public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
+    public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
+    public DbSet<ConnectedDevice> ConnectedDevices => Set<ConnectedDevice>();
+    public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+    public DbSet<Integration> Integrations => Set<Integration>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -171,6 +178,79 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(c => c.UserId);
             entity.HasIndex(c => c.IsActive);
+        });
+
+        modelBuilder.Entity<BusinessProfile>(entity =>
+        {
+            entity.HasOne(bp => bp.User)
+                  .WithOne()
+                  .HasForeignKey<BusinessProfile>(bp => bp.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(bp => bp.UserId).IsUnique();
+        });
+
+        modelBuilder.Entity<UserPreference>(entity =>
+        {
+            entity.HasOne(up => up.User)
+                  .WithMany()
+                  .HasForeignKey(up => up.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(up => new { up.UserId, up.Category, up.Key }).IsUnique();
+        });
+
+        modelBuilder.Entity<ApiKey>(entity =>
+        {
+            entity.HasOne(ak => ak.User)
+                  .WithMany()
+                  .HasForeignKey(ak => ak.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(ak => ak.UserId);
+        });
+
+        modelBuilder.Entity<TeamMember>(entity =>
+        {
+            entity.HasOne(tm => tm.BusinessUser)
+                  .WithMany()
+                  .HasForeignKey(tm => tm.BusinessUserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(tm => new { tm.BusinessUserId, tm.MemberEmail }).IsUnique();
+        });
+
+        modelBuilder.Entity<ConnectedDevice>(entity =>
+        {
+            entity.HasOne(d => d.User)
+                  .WithMany()
+                  .HasForeignKey(d => d.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(d => d.UserId);
+            entity.HasIndex(d => d.LastActiveAt);
+        });
+
+        modelBuilder.Entity<ActivityLog>(entity =>
+        {
+            entity.HasOne(al => al.User)
+                  .WithMany()
+                  .HasForeignKey(al => al.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(al => al.UserId);
+            entity.HasIndex(al => al.CreatedAt);
+            entity.HasIndex(al => al.Category);
+        });
+
+        modelBuilder.Entity<Integration>(entity =>
+        {
+            entity.HasOne(i => i.User)
+                  .WithMany()
+                  .HasForeignKey(i => i.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(i => new { i.UserId, i.Provider }).IsUnique();
         });
     }
 }
