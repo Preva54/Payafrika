@@ -34,7 +34,7 @@ export default function AdminAuditLogsPage() {
         <div className="text-center py-12 text-muted-foreground text-sm">No audit logs available</div>
       ) : (
         <div className="space-y-2">
-          {logs.map((log: any, i) => (
+          {logs.map((log: Record<string, unknown>, i) => (
             <div key={i} className="p-4 rounded-xl bg-card border border-border">
               <pre className="text-sm">{JSON.stringify(log, null, 2)}</pre>
             </div>

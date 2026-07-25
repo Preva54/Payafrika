@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using PayAfrika.API.Controllers;
+using PayAfrika.API.DTOs;
 using PayAfrika.API.Models;
 
 namespace PayAfrika.API.Tests.IntegrationTests;
@@ -77,7 +78,7 @@ public class WalletControllerTests : TestBase
         var controller = new WalletController(Db);
         SetAuthHeader(controller, user.Id.ToString());
 
-        var result = await controller.Deposit(5000);
+        var result = await controller.Deposit(new WalletActionRequest { Amount = 5000 });
 
         var okResult = Assert.IsType<OkObjectResult>(result.Result);
         var response = Assert.IsType<Wallet>(okResult.Value);
@@ -106,7 +107,7 @@ public class WalletControllerTests : TestBase
         var controller = new WalletController(Db);
         SetAuthHeader(controller, user.Id.ToString());
 
-        var result = await controller.Deposit(0);
+        var result = await controller.Deposit(new WalletActionRequest { Amount = 0 });
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -133,7 +134,7 @@ public class WalletControllerTests : TestBase
         var controller = new WalletController(Db);
         SetAuthHeader(controller, user.Id.ToString());
 
-        var result = await controller.Deposit(-100);
+        var result = await controller.Deposit(new WalletActionRequest { Amount = -100 });
 
         Assert.IsType<BadRequestObjectResult>(result.Result);
     }
@@ -160,7 +161,7 @@ public class WalletControllerTests : TestBase
         var controller = new WalletController(Db);
         SetAuthHeader(controller, user.Id.ToString());
 
-        await controller.Deposit(10000);
+        await controller.Deposit(new WalletActionRequest { Amount = 10000 });
 
         var transactions = Db.Transactions.Where(t => t.UserId == user.Id).ToList();
         Assert.Single(transactions);

@@ -152,7 +152,7 @@ export default function NewTicketPage() {
           <ul className="space-y-1 text-sm text-muted-foreground">
             <li className="flex items-center gap-2">• Be specific about the issue</li>
             <li className="flex items-center gap-2">• Include error messages or screenshots</li>
-            <li className="flex items-center gap-2">• Mention steps you've already tried</li>
+            <li className="flex items-center gap-2">• Mention steps you&apos;ve already tried</li>
             <li className="flex items-center gap-2">• Select the most relevant category</li>
           </ul>
         </CardContent>
