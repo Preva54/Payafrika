@@ -16,7 +16,7 @@ export function WalletSection() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    settingsApi.getWalletSettings().then((res) => { setSettings(res); setLoading(false) })
+    settingsApi.getWalletSettings().then((res) => { setSettings(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const update = (key: keyof WalletSettings, value: unknown) => {
@@ -26,7 +26,7 @@ export function WalletSection() {
   const handleSave = async () => {
     if (!settings) return
     setSaving(true)
-    await settingsApi.updateWalletSettings(settings)
+    try { await settingsApi.updateWalletSettings(settings) } catch { setSaving(false); return }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     setSaving(false)

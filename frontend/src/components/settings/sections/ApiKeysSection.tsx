@@ -21,13 +21,14 @@ export function ApiKeysSection() {
   const [showSecret, setShowSecret] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    settingsApi.getApiKeys().then((res) => { setKeys(res); setLoading(false) })
+    settingsApi.getApiKeys().then((res) => { setKeys(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const create = async () => {
     if (!form.name) return
     setCreating(true)
-    const result = await settingsApi.createApiKey({
+    let result: CreateApiKeyResult
+    try { result = await settingsApi.createApiKey({
       name: form.name,
       environment: form.environment,
       scopes: form.scopes.split(",").map((s) => s.trim()).filter(Boolean),
@@ -36,10 +37,11 @@ export function ApiKeysSection() {
     setKeys([...keys, { id: result.id, name: result.name, keyPreview: result.key.slice(0, 8) + "...", environment: result.environment, scopes: [], allowedDomains: [], callbackUrls: [], isActive: true, createdAt: new Date().toISOString() }])
     setCreating(false)
     setForm({ name: "", environment: "sandbox", scopes: "" })
+    } catch { setCreating(false) }
   }
 
   const remove = async (id: string) => {
-    await settingsApi.deleteApiKey(id)
+    try { await settingsApi.deleteApiKey(id) } catch { return }
     setKeys(keys.filter((k) => k.id !== id))
   }
 

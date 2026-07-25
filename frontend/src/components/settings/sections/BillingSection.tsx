@@ -31,12 +31,12 @@ export function BillingSection() {
       setBilling(res)
       setForm({ billingEmail: res.billingEmail || "", billingAddress: res.billingAddress || "", taxId: res.taxId || "" })
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
   }, [])
 
   const handleSave = async () => {
     setSaving(true)
-    await settingsApi.updateBilling({ ...form, plan: billing?.plan })
+    try { await settingsApi.updateBilling({ ...form, plan: billing?.plan }) } catch { setSaving(false); return }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     setSaving(false)
@@ -44,7 +44,7 @@ export function BillingSection() {
 
   const changePlan = async (plan: string) => {
     if (plan === billing?.plan) return
-    await settingsApi.updateBilling({ plan })
+    try { await settingsApi.updateBilling({ plan }) } catch { return }
     if (billing) setBilling({ ...billing, plan })
   }
 
@@ -104,7 +104,7 @@ export function BillingSection() {
           <div className="flex items-center gap-2">
             <span className="text-sm">Auto Renew</span>
             <Switch checked={billing?.autoRenew ?? true} onCheckedChange={async (v) => {
-              await settingsApi.updateBilling({ autoRenew: v })
+              try { await settingsApi.updateBilling({ autoRenew: v }) } catch { return }
               if (billing) setBilling({ ...billing, autoRenew: v })
             }} />
           </div>

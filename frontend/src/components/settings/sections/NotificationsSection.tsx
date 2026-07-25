@@ -33,7 +33,7 @@ export function NotificationsSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    settingsApi.getNotifications().then((res) => { setPrefs(res); setLoading(false) })
+    settingsApi.getNotifications().then((res) => { setPrefs(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const toggle = async (category: string, channel: string, value: boolean) => {
@@ -42,7 +42,7 @@ export function NotificationsSection() {
     if (!updated.channels[category]) updated.channels[category] = {}
     updated.channels[category][channel] = value
     setPrefs(updated)
-    await settingsApi.updateNotification({ category, channel, enabled: value })
+    try { await settingsApi.updateNotification({ category, channel, enabled: value }) } catch { /* ignore */ }
   }
 
   if (loading) return <div className="space-y-4">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="glass-card rounded-2xl p-6 animate-pulse"><div className="h-4 bg-muted rounded w-1/3 mb-3" /><div className="h-10 bg-muted rounded-xl w-full" /></div>)}</div>

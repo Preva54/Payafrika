@@ -25,7 +25,7 @@ export function SecuritySection() {
   const [copied, setCopied] = useState(false)
 
   useEffect(() => {
-    settingsApi.getSecurity().then((res) => { setSecurity(res); setLoading(false) })
+    settingsApi.getSecurity().then((res) => { setSecurity(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const passwordStrength = (pass: string): { score: number; label: string; color: string } => {
@@ -63,9 +63,7 @@ export function SecuritySection() {
   const handleToggle2FA = useCallback(async () => {
     if (!security) return
     if (!security.twoFactorEnabled) {
-      const setup = await settingsApi.setupTwoFactor()
-      setTwoFactorSetup(setup)
-      setShowRecovery(true)
+      try { const setup = await settingsApi.setupTwoFactor(); setTwoFactorSetup(setup); setShowRecovery(true) } catch { return }
     }
     setSaving2FA(true)
     try {

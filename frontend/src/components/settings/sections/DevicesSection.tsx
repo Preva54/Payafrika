@@ -13,21 +13,21 @@ export function DevicesSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    settingsApi.getDevices().then((res) => { setDevices(res); setLoading(false) })
+    settingsApi.getDevices().then((res) => { setDevices(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const toggleTrust = async (id: string) => {
-    await settingsApi.toggleTrustDevice(id)
+    try { await settingsApi.toggleTrustDevice(id) } catch { return }
     setDevices(devices.map((d) => d.id === id ? { ...d, isTrusted: !d.isTrusted } : d))
   }
 
   const remove = async (id: string) => {
-    await settingsApi.removeDevice(id)
+    try { await settingsApi.removeDevice(id) } catch { return }
     setDevices(devices.filter((d) => d.id !== id))
   }
 
   const removeAll = async () => {
-    await settingsApi.removeAllDevices()
+    try { await settingsApi.removeAllDevices() } catch { return }
     setDevices(devices.filter((d) => d.isCurrent))
   }
 

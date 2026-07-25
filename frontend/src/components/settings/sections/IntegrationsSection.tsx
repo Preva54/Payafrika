@@ -20,18 +20,18 @@ export function IntegrationsSection() {
   const [connecting, setConnecting] = useState<string | null>(null)
 
   useEffect(() => {
-    settingsApi.getIntegrations().then((res) => { setIntegrations(res); setLoading(false) })
+    settingsApi.getIntegrations().then((res) => { setIntegrations(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const connect = async (provider: string) => {
     setConnecting(provider)
-    await settingsApi.connectIntegration(provider)
+    try { await settingsApi.connectIntegration(provider) } catch { setConnecting(null); return }
     setIntegrations(integrations.map((i) => i.provider === provider ? { ...i, isConnected: true, syncStatus: "synced", lastSyncedAt: new Date().toISOString() } : i))
     setConnecting(null)
   }
 
   const disconnect = async (provider: string) => {
-    await settingsApi.disconnectIntegration(provider)
+    try { await settingsApi.disconnectIntegration(provider) } catch { return }
     setIntegrations(integrations.map((i) => i.provider === provider ? { ...i, isConnected: false, syncStatus: "disconnected" } : i))
   }
 

@@ -14,7 +14,7 @@ export function PrivacySection() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    settingsApi.getPrivacy().then((res) => { setSettings(res); setLoading(false) })
+    settingsApi.getPrivacy().then((res) => { setSettings(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const toggle = async (key: keyof PrivacySettings, value: boolean) => {
@@ -22,7 +22,7 @@ export function PrivacySection() {
     const updated = { ...settings, [key]: value }
     setSettings(updated)
     setSaving(true)
-    await settingsApi.updatePrivacy(updated)
+    try { await settingsApi.updatePrivacy(updated) } catch { /* ignore */ }
     setSaving(false)
   }
 

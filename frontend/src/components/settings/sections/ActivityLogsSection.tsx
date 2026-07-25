@@ -22,7 +22,7 @@ export function ActivityLogsSection() {
 
   const fetchLogs = (category?: string) => {
     setLoading(true)
-    settingsApi.getActivityLogs(1, 50, category).then((res) => { setLogs(res); setLoading(false) })
+    settingsApi.getActivityLogs(1, 50, category).then((res) => { setLogs(res); setLoading(false) }).catch(() => setLoading(false))
   }
 
   useEffect(() => { fetchLogs() }, [])

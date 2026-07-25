@@ -15,7 +15,7 @@ export function PreferencesSection() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    settingsApi.getAccountPreferences().then((res) => { setPrefs(res || {}); setLoading(false) })
+    settingsApi.getAccountPreferences().then((res) => { setPrefs(res || {}); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const update = (key: keyof AccountPreferences, value: string) => {
@@ -24,7 +24,7 @@ export function PreferencesSection() {
 
   const handleSave = async () => {
     setSaving(true)
-    await settingsApi.updateAccountPreferences(prefs)
+    try { await settingsApi.updateAccountPreferences(prefs) } catch { setSaving(false); return }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     setSaving(false)

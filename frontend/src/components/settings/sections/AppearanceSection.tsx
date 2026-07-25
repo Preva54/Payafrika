@@ -24,14 +24,14 @@ export function AppearanceSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    settingsApi.getAppearance().then((res) => { setSettings(res); setLoading(false) })
+    settingsApi.getAppearance().then((res) => { setSettings(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const update = async (key: keyof AppearanceSettings, value: string | boolean) => {
     if (!settings) return
     const updated = { ...settings, [key]: value }
     setSettings(updated)
-    await settingsApi.updateAppearance(updated)
+    try { await settingsApi.updateAppearance(updated) } catch { /* ignore */ }
     if (key === "theme") setTheme(value as string)
   }
 

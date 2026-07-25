@@ -24,14 +24,14 @@ export function LanguageRegionSection() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    settingsApi.getLanguageRegion().then((res) => { setSettings(res); setLoading(false) })
+    settingsApi.getLanguageRegion().then((res) => { setSettings(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const update = async (key: keyof LanguageRegionSettings, value: string) => {
     if (!settings) return
     const updated = { ...settings, [key]: value }
     setSettings(updated)
-    await settingsApi.updateLanguageRegion(updated)
+    try { await settingsApi.updateLanguageRegion(updated) } catch { /* ignore */ }
   }
 
   if (loading) return <div className="space-y-4">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="glass-card rounded-2xl p-6 animate-pulse"><div className="h-4 bg-muted rounded w-1/3 mb-3" /><div className="h-10 bg-muted rounded-xl w-full" /></div>)}</div>

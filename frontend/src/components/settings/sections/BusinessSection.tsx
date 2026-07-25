@@ -18,7 +18,7 @@ export function BusinessSection() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    settingsApi.getBusiness().then((res) => { setProfile(res || {}); setLoading(false) })
+    settingsApi.getBusiness().then((res) => { setProfile(res || {}); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const update = (key: keyof BusinessProfileSettings, value: string | undefined) => {
@@ -27,7 +27,7 @@ export function BusinessSection() {
 
   const handleSave = async () => {
     setSaving(true)
-    await settingsApi.updateBusiness(profile)
+    try { await settingsApi.updateBusiness(profile) } catch { setSaving(false); return }
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
     setSaving(false)

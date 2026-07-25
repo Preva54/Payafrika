@@ -43,7 +43,7 @@ export function ProfileSection() {
         occupation: res.occupation || "",
       })
       setLoading(false)
-    })
+    }).catch(() => setLoading(false))
   }, [])
 
   const handleSave = useCallback(async () => {

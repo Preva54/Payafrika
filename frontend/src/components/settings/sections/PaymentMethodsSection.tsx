@@ -14,11 +14,11 @@ export function PaymentMethodsSection() {
   const [showAdd, setShowAdd] = useState(false)
 
   useEffect(() => {
-    settingsApi.getPaymentMethods().then((res) => { setMethods(res); setLoading(false) })
+    settingsApi.getPaymentMethods().then((res) => { setMethods(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const remove = async (id: string) => {
-    await settingsApi.removePaymentMethod(id)
+    try { await settingsApi.removePaymentMethod(id) } catch { return }
     setMethods(methods.filter((m) => m.id !== id))
   }
 
@@ -93,7 +93,7 @@ export function PaymentMethodsSection() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
               { label: "Debit / Credit Card", icon: <CreditCard className="h-5 w-5" />, desc: "Visa, Mastercard, Amex" },
-              { label: "Bank Account", icon: <Bank className="h-5 w-5" />, desc: "SA bank account" },
+              { label: "Bank Account", icon: <Landmark className="h-5 w-5" />, desc: "SA bank account" },
               { label: "Mobile Money", icon: <Smartphone className="h-5 w-5" />, desc: "M-Pesa, Airtel Money" },
             ].map((item, i) => (
               <motion.button

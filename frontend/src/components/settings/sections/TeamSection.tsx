@@ -20,25 +20,26 @@ export function TeamSection() {
   const [invite, setInvite] = useState({ email: "", role: "readonly" })
 
   useEffect(() => {
-    settingsApi.getTeam().then((res) => { setMembers(res); setLoading(false) })
+    settingsApi.getTeam().then((res) => { setMembers(res); setLoading(false) }).catch(() => setLoading(false))
   }, [])
 
   const inviteMember = async () => {
     if (!invite.email) return
-    const member = await settingsApi.inviteMember({ memberEmail: invite.email, role: invite.role, permissions: [] })
+    let member: TeamMemberItem
+    try { member = await settingsApi.inviteMember({ memberEmail: invite.email, role: invite.role, permissions: [] }) } catch { return }
     setMembers([...members, member])
     setInvite({ email: "", role: "readonly" })
     setShowInvite(false)
   }
 
   const updateRole = async (id: string, role: string) => {
-    await settingsApi.updateMember(id, { role })
+    try { await settingsApi.updateMember(id, { role }) } catch { return }
     setMembers(members.map((m) => (m.id === id ? { ...m, role } : m)))
   }
 
   const remove = async (id: string) => {
     if (!confirm("Remove this team member?")) return
-    await settingsApi.removeMember(id)
+    try { await settingsApi.removeMember(id) } catch { return }
     setMembers(members.filter((m) => m.id !== id))
   }
 
