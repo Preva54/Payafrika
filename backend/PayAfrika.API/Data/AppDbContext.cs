@@ -36,6 +36,33 @@ public class AppDbContext : DbContext
     public DbSet<KycReview> KycReviews => Set<KycReview>();
     public DbSet<KycTimelineEvent> KycTimelineEvents => Set<KycTimelineEvent>();
 
+    public DbSet<ContentPage> ContentPages => Set<ContentPage>();
+    public DbSet<BlogCategory> BlogCategories => Set<BlogCategory>();
+    public DbSet<BlogPost> BlogPosts => Set<BlogPost>();
+    public DbSet<Service> Services => Set<Service>();
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<Testimonial> Testimonials => Set<Testimonial>();
+    public DbSet<CmsTeamMember> CmsTeamMembers => Set<CmsTeamMember>();
+    public DbSet<Partner> Partners => Set<Partner>();
+    public DbSet<JobPosition> JobPositions => Set<JobPosition>();
+    public DbSet<JobApplication> JobApplications => Set<JobApplication>();
+    public DbSet<FaqCategory> FaqCategories => Set<FaqCategory>();
+    public DbSet<Faq> Faqs => Set<Faq>();
+    public DbSet<MediaFolder> MediaFolders => Set<MediaFolder>();
+    public DbSet<MediaFile> MediaFiles => Set<MediaFile>();
+    public DbSet<NavigationMenu> NavigationMenus => Set<NavigationMenu>();
+    public DbSet<FooterConfig> FooterConfigs => Set<FooterConfig>();
+    public DbSet<Popup> Popups => Set<Popup>();
+    public DbSet<Announcement> Announcements => Set<Announcement>();
+    public DbSet<CmsForm> CmsForms => Set<CmsForm>();
+    public DbSet<FormSubmission> FormSubmissions => Set<FormSubmission>();
+    public DbSet<LegalPage> LegalPages => Set<LegalPage>();
+    public DbSet<ApiDoc> ApiDocs => Set<ApiDoc>();
+    public DbSet<SupportContent> SupportContents => Set<SupportContent>();
+    public DbSet<ContentVersion> ContentVersions => Set<ContentVersion>();
+    public DbSet<ContentRevision> ContentRevisions => Set<ContentRevision>();
+    public DbSet<Campaign> Campaigns => Set<Campaign>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -303,5 +330,20 @@ public class AppDbContext : DbContext
             entity.HasIndex(t => t.KycApplicationId);
             entity.HasIndex(t => t.CreatedAt);
         });
+
+        modelBuilder.Entity<ContentPage>(e => { e.HasIndex(x => x.Slug).IsUnique(); e.HasIndex(x => x.Status); });
+        modelBuilder.Entity<BlogCategory>(e => { e.HasIndex(x => x.Slug).IsUnique(); });
+        modelBuilder.Entity<BlogPost>(e => { e.HasIndex(x => x.Slug).IsUnique(); e.HasIndex(x => x.Status); e.HasIndex(x => x.CategoryId); });
+        modelBuilder.Entity<Service>(e => { e.HasIndex(x => x.Slug).IsUnique(); e.HasIndex(x => x.Status); });
+        modelBuilder.Entity<Product>(e => { e.HasIndex(x => x.Slug).IsUnique(); e.HasIndex(x => x.Status); });
+        modelBuilder.Entity<FaqCategory>(e => { e.HasIndex(x => x.SortOrder); });
+        modelBuilder.Entity<Faq>(e => { e.HasIndex(x => x.CategoryId); e.HasIndex(x => x.Priority); });
+        modelBuilder.Entity<MediaFolder>(e => { e.HasOne(x => x.Parent).WithMany(x => x.Children).HasForeignKey(x => x.ParentId).OnDelete(DeleteBehavior.Restrict); });
+        modelBuilder.Entity<CmsTeamMember>(e => { e.HasIndex(x => x.SortOrder); });
+        modelBuilder.Entity<MediaFile>(e => { e.HasOne(x => x.Folder).WithMany(x => x.Files).HasForeignKey(x => x.FolderId).OnDelete(DeleteBehavior.SetNull); e.HasIndex(x => x.FolderId); });
+        modelBuilder.Entity<JobApplication>(e => { e.HasOne(x => x.Position).WithMany().HasForeignKey(x => x.PositionId).OnDelete(DeleteBehavior.Cascade); e.HasIndex(x => x.PositionId); });
+        modelBuilder.Entity<FormSubmission>(e => { e.HasOne(x => x.Form).WithMany().HasForeignKey(x => x.FormId).OnDelete(DeleteBehavior.Cascade); e.HasIndex(x => x.FormId); });
+        modelBuilder.Entity<ContentVersion>(e => { e.HasIndex(x => new { x.EntityType, x.EntityId }); });
+        modelBuilder.Entity<ContentRevision>(e => { e.HasIndex(x => new { x.EntityType, x.EntityId }); });
     }
 }

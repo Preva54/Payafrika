@@ -427,6 +427,214 @@ using (var scope = app.Services.CreateScope())
             ""DisplayOrder"" INTEGER NOT NULL DEFAULT 0,
             ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE
         );
+
+        CREATE TABLE IF NOT EXISTS ""ContentPages"" (
+            ""Id"" UUID PRIMARY KEY, ""Title"" VARCHAR(300) NOT NULL, ""Slug"" VARCHAR(500) NOT NULL,
+            ""Content"" TEXT NOT NULL DEFAULT '', ""Status"" VARCHAR(50) NOT NULL DEFAULT 'draft',
+            ""AuthorId"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""Template"" VARCHAR(200) NULL, ""Metadata"" TEXT NULL, ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""PublishedAt"" TIMESTAMPTZ NULL, ""ScheduledAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_ContentPages_Slug"" ON ""ContentPages""(""Slug"");
+        CREATE INDEX IF NOT EXISTS ""IX_ContentPages_Status"" ON ""ContentPages""(""Status"");
+
+        CREATE TABLE IF NOT EXISTS ""BlogCategories"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL, ""Slug"" VARCHAR(500) NOT NULL,
+            ""Description"" TEXT NULL, ""SortOrder"" INTEGER NOT NULL DEFAULT 0, ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_BlogCategories_Slug"" ON ""BlogCategories""(""Slug"");
+
+        CREATE TABLE IF NOT EXISTS ""BlogPosts"" (
+            ""Id"" UUID PRIMARY KEY, ""Title"" VARCHAR(300) NOT NULL, ""Slug"" VARCHAR(500) NOT NULL,
+            ""Content"" TEXT NOT NULL DEFAULT '', ""Excerpt"" TEXT NULL, ""FeaturedImage"" TEXT NULL,
+            ""CategoryId"" UUID NULL REFERENCES ""BlogCategories""(""Id"") ON DELETE SET NULL,
+            ""Tags"" TEXT NOT NULL DEFAULT '', ""AuthorId"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'draft', ""IsFeatured"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""ViewCount"" INTEGER NOT NULL DEFAULT 0, ""ReadingTime"" INTEGER NOT NULL DEFAULT 0,
+            ""SeoTitle"" VARCHAR(300) NULL, ""SeoDescription"" TEXT NULL, ""OpenGraphImage"" TEXT NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""PublishedAt"" TIMESTAMPTZ NULL, ""ScheduledAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_BlogPosts_Slug"" ON ""BlogPosts""(""Slug"");
+
+        CREATE TABLE IF NOT EXISTS ""Services"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL, ""Slug"" VARCHAR(500) NOT NULL,
+            ""Icon"" TEXT NULL, ""HeroImage"" TEXT NULL, ""Description"" TEXT NOT NULL DEFAULT '',
+            ""Features"" TEXT NOT NULL DEFAULT '[]', ""Pricing"" TEXT NULL, ""Faq"" TEXT NULL,
+            ""CtaText"" VARCHAR(200) NULL, ""CtaUrl"" VARCHAR(500) NULL,
+            ""SeoTitle"" VARCHAR(300) NULL, ""SeoDescription"" TEXT NULL,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'draft', ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Services_Slug"" ON ""Services""(""Slug"");
+
+        CREATE TABLE IF NOT EXISTS ""Products"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL, ""Slug"" VARCHAR(500) NOT NULL,
+            ""Description"" TEXT NOT NULL DEFAULT '', ""Images"" TEXT NOT NULL DEFAULT '[]',
+            ""Videos"" TEXT NULL, ""Features"" TEXT NOT NULL DEFAULT '[]', ""Pricing"" TEXT NULL,
+            ""Documentation"" TEXT NULL, ""DownloadLinks"" TEXT NULL,
+            ""SeoTitle"" VARCHAR(300) NULL, ""SeoDescription"" TEXT NULL,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'draft', ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Products_Slug"" ON ""Products""(""Slug"");
+
+        CREATE TABLE IF NOT EXISTS ""Testimonials"" (
+            ""Id"" UUID PRIMARY KEY, ""CustomerName"" VARCHAR(200) NOT NULL, ""CustomerPhoto"" TEXT NULL,
+            ""CompanyLogo"" TEXT NULL, ""CompanyName"" VARCHAR(200) NULL, ""Content"" TEXT NOT NULL,
+            ""Rating"" INTEGER NOT NULL DEFAULT 5, ""VideoUrl"" TEXT NULL,
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'customer', ""IsFeatured"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0, ""Status"" VARCHAR(20) NOT NULL DEFAULT 'published',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""CmsTeamMembers"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL, ""Photo"" TEXT NULL,
+            ""Role"" VARCHAR(200) NOT NULL, ""Biography"" TEXT NULL,
+            ""LinkedIn"" VARCHAR(500) NULL, ""Twitter"" VARCHAR(500) NULL,
+            ""Email"" VARCHAR(300) NULL, ""Phone"" VARCHAR(50) NULL,
+            ""Department"" VARCHAR(100) NOT NULL DEFAULT '', ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'published', ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""Partners"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL, ""LogoUrl"" TEXT NULL,
+            ""Description"" TEXT NULL, ""Website"" VARCHAR(500) NULL,
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'partner', ""IsFeatured"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0, ""Status"" VARCHAR(20) NOT NULL DEFAULT 'published',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""JobPositions"" (
+            ""Id"" UUID PRIMARY KEY, ""Title"" VARCHAR(200) NOT NULL, ""Department"" VARCHAR(200) NOT NULL,
+            ""Location"" VARCHAR(200) NOT NULL, ""EmploymentType"" VARCHAR(50) NOT NULL DEFAULT 'full-time',
+            ""SalaryMin"" DECIMAL(18,2) NULL, ""SalaryMax"" DECIMAL(18,2) NULL,
+            ""Description"" TEXT NOT NULL DEFAULT '', ""Requirements"" TEXT NOT NULL DEFAULT '[]',
+            ""Benefits"" TEXT NOT NULL DEFAULT '[]', ""HiringManager"" VARCHAR(200) NULL,
+            ""ClosingDate"" TIMESTAMPTZ NULL, ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'draft',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""JobApplications"" (
+            ""Id"" UUID PRIMARY KEY, ""PositionId"" UUID NOT NULL REFERENCES ""JobPositions""(""Id"") ON DELETE CASCADE,
+            ""ApplicantName"" VARCHAR(200) NOT NULL, ""Email"" VARCHAR(300) NOT NULL,
+            ""Phone"" VARCHAR(50) NULL, ""ResumeUrl"" TEXT NULL, ""CoverLetter"" TEXT NULL,
+            ""Data"" TEXT NOT NULL DEFAULT '', ""Status"" VARCHAR(50) NOT NULL DEFAULT 'new',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""FaqCategories"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL, ""SortOrder"" INTEGER NOT NULL DEFAULT 0
+        );
+
+        CREATE TABLE IF NOT EXISTS ""Faqs"" (
+            ""Id"" UUID PRIMARY KEY, ""Question"" TEXT NOT NULL, ""Answer"" TEXT NOT NULL,
+            ""CategoryId"" UUID NULL REFERENCES ""FaqCategories""(""Id"") ON DELETE SET NULL,
+            ""Priority"" INTEGER NOT NULL DEFAULT 0, ""RelatedFaqs"" TEXT NULL,
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'published', ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""MediaFolders"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL,
+            ""ParentId"" UUID NULL REFERENCES ""MediaFolders""(""Id"") ON DELETE RESTRICT,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""MediaFiles"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(300) NOT NULL, ""FileName"" VARCHAR(500) NOT NULL,
+            ""FileUrl"" VARCHAR(500) NOT NULL, ""FileType"" VARCHAR(50) NOT NULL DEFAULT 'image',
+            ""MimeType"" VARCHAR(100) NOT NULL DEFAULT '', ""FileSize"" BIGINT NOT NULL DEFAULT 0,
+            ""Width"" INTEGER NULL, ""Height"" INTEGER NULL, ""Alt"" TEXT NULL,
+            ""FolderId"" UUID NULL REFERENCES ""MediaFolders""(""Id"") ON DELETE SET NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""NavigationMenus"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL, ""Location"" VARCHAR(50) NOT NULL DEFAULT 'header',
+            ""Items"" TEXT NOT NULL DEFAULT '[]', ""Status"" VARCHAR(20) NOT NULL DEFAULT 'published',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""FooterConfigs"" (
+            ""Id"" UUID PRIMARY KEY, ""CompanyInfo"" TEXT NOT NULL DEFAULT '', ""Links"" TEXT NOT NULL DEFAULT '[]',
+            ""SocialMedia"" TEXT NOT NULL DEFAULT '[]', ""Newsletter"" TEXT NULL, ""ContactInfo"" TEXT NULL,
+            ""Certifications"" TEXT NOT NULL DEFAULT '[]', ""PaymentLogos"" TEXT NOT NULL DEFAULT '[]',
+            ""LegalLinks"" TEXT NOT NULL DEFAULT '[]', ""Copyright"" TEXT NULL,
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'published', ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""Popups"" (
+            ""Id"" UUID PRIMARY KEY, ""Title"" VARCHAR(300) NOT NULL, ""Content"" TEXT NOT NULL DEFAULT '',
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'announcement', ""Status"" VARCHAR(20) NOT NULL DEFAULT 'draft',
+            ""Scheduling"" TEXT NULL, ""TargetAudience"" TEXT NULL, ""DisplayRules"" TEXT NULL,
+            ""Animation"" TEXT NULL, ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""Announcements"" (
+            ""Id"" UUID PRIMARY KEY, ""Title"" VARCHAR(300) NOT NULL, ""Message"" TEXT NOT NULL DEFAULT '',
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'update', ""Status"" VARCHAR(20) NOT NULL DEFAULT 'draft',
+            ""TargetRoles"" TEXT NOT NULL DEFAULT '[]', ""StartAt"" TIMESTAMPTZ NULL, ""EndAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""CmsForms"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL, ""Fields"" TEXT NOT NULL DEFAULT '[]',
+            ""SuccessMessage"" TEXT NULL, ""EmailNotifications"" TEXT NULL, ""ValidationRules"" TEXT NULL,
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'draft',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""FormSubmissions"" (
+            ""Id"" UUID PRIMARY KEY, ""FormId"" UUID NOT NULL REFERENCES ""CmsForms""(""Id"") ON DELETE CASCADE,
+            ""Data"" TEXT NOT NULL DEFAULT '', ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""LegalPages"" (
+            ""Id"" UUID PRIMARY KEY, ""Title"" VARCHAR(200) NOT NULL, ""Slug"" VARCHAR(500) NOT NULL,
+            ""Content"" TEXT NOT NULL DEFAULT '', ""Status"" VARCHAR(20) NOT NULL DEFAULT 'published',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""ApiDocs"" (
+            ""Id"" UUID PRIMARY KEY, ""Title"" VARCHAR(300) NOT NULL, ""Slug"" VARCHAR(500) NOT NULL,
+            ""Content"" TEXT NOT NULL DEFAULT '', ""Category"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0, ""Status"" VARCHAR(20) NOT NULL DEFAULT 'draft',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""SupportContents"" (
+            ""Id"" UUID PRIMARY KEY, ""Title"" VARCHAR(300) NOT NULL, ""Slug"" VARCHAR(500) NOT NULL,
+            ""Content"" TEXT NOT NULL DEFAULT '', ""Category"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0, ""Status"" VARCHAR(20) NOT NULL DEFAULT 'draft',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""ContentVersions"" (
+            ""Id"" UUID PRIMARY KEY, ""EntityType"" VARCHAR(100) NOT NULL, ""EntityId"" UUID NOT NULL,
+            ""Content"" TEXT NOT NULL DEFAULT '', ""Version"" INTEGER NOT NULL DEFAULT 1,
+            ""CreatedBy"" VARCHAR(200) NULL, ""ChangeNotes"" TEXT NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_ContentVersions_Entity"" ON ""ContentVersions""(""EntityType"", ""EntityId"");
+
+        CREATE TABLE IF NOT EXISTS ""ContentRevisions"" (
+            ""Id"" UUID PRIMARY KEY, ""EntityType"" VARCHAR(100) NOT NULL, ""EntityId"" UUID NOT NULL,
+            ""FromStatus"" VARCHAR(50) NOT NULL DEFAULT '', ""ToStatus"" VARCHAR(50) NOT NULL DEFAULT '',
+            ""Notes"" TEXT NULL, ""CreatedBy"" VARCHAR(200) NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_ContentRevisions_Entity"" ON ""ContentRevisions""(""EntityType"", ""EntityId"");
+
+        CREATE TABLE IF NOT EXISTS ""Campaigns"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(200) NOT NULL, ""Description"" TEXT NULL,
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'email', ""Status"" VARCHAR(20) NOT NULL DEFAULT 'draft',
+            ""StartDate"" TIMESTAMPTZ NULL, ""EndDate"" TIMESTAMPTZ NULL,
+            ""TargetAudience"" TEXT NULL, ""Content"" TEXT NOT NULL DEFAULT '',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
     ");
 
     var adminEmail = builder.Configuration["AdminEmail"]
@@ -444,6 +652,15 @@ using (var scope = app.Services.CreateScope())
     var testUsers = db.Users.Where(u => testEmails.Contains(u.Email)).ToList();
     if (testUsers.Count != 0)
     {
+        var testUserIds = testUsers.Select(u => u.Id).ToList();
+        db.KycApplications.RemoveRange(db.KycApplications.Where(k => testUserIds.Contains(k.UserId)));
+        db.ActivityLogs.RemoveRange(db.ActivityLogs.Where(a => testUserIds.Contains(a.UserId)));
+        db.ConnectedDevices.RemoveRange(db.ConnectedDevices.Where(d => testUserIds.Contains(d.UserId)));
+        db.Integrations.RemoveRange(db.Integrations.Where(i => testUserIds.Contains(i.UserId)));
+        db.SupportTickets.RemoveRange(db.SupportTickets.Where(t => testUserIds.Contains(t.UserId)));
+        db.Loans.RemoveRange(db.Loans.Where(l => testUserIds.Contains(l.UserId)));
+        db.Transactions.RemoveRange(db.Transactions.Where(t => testUserIds.Contains(t.UserId)));
+        db.Wallets.RemoveRange(db.Wallets.Where(w => testUserIds.Contains(w.UserId)));
         db.Users.RemoveRange(testUsers);
         db.SaveChanges();
     }
