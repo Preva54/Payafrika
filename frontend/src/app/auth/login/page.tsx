@@ -25,6 +25,9 @@ export default function LoginPage() {
     try {
       const res = await authApi.login({ email, password })
       localStorage.setItem("token", res.token)
+      if (res.user.role === "admin") {
+        sessionStorage.setItem("admin_user", JSON.stringify({ email: res.user.email, name: res.user.fullName, role: "superadmin" }))
+      }
       router.push(res.user.role === "admin" ? "/admin" : "/dashboard")
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed")
