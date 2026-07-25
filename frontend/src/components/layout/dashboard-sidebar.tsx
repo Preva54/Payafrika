@@ -6,11 +6,12 @@ import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/use-auth-store"
 import {
   LayoutDashboard, Wallet, ArrowLeftRight, HandCoins,
-  Bell, Settings, User, FileText, HelpCircle, LogOut, CreditCard
+  Bell, Settings, User, FileText, HelpCircle, LogOut, CreditCard, Shield
 } from "lucide-react"
 
 const customerLinks = [
   { label: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { label: "KYC Verification", href: "/dashboard/kyc", icon: Shield },
   { label: "Wallet", href: "/dashboard/wallet", icon: Wallet },
   { label: "Transactions", href: "/dashboard/transactions", icon: ArrowLeftRight },
   { label: "Loans", href: "/dashboard/loans", icon: HandCoins },

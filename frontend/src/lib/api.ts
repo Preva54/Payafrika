@@ -972,3 +972,155 @@ export const settingsApi = {
   deleteAccount: (data: { password: string; twoFactorCode?: string; downloadData: boolean }) =>
     api.post("/settings/delete-account", data),
 };
+
+// ──────────────────────────────────────────────
+// KYC
+// ──────────────────────────────────────────────
+
+export interface KycStatusInfo {
+  id: string;
+  status: string;
+  applicationType: string;
+  overallProgress: number;
+  completedSteps: string[];
+  identityStatus: { status: string; updatedAt?: string };
+  addressStatus: { status: string; updatedAt?: string };
+  phoneStatus: { status: string; updatedAt?: string };
+  emailStatus: { status: string; updatedAt?: string };
+  selfieStatus: { status: string; updatedAt?: string };
+  businessStatus: { status: string; updatedAt?: string };
+  bankStatus: { status: string; updatedAt?: string };
+  taxStatus: { status: string; updatedAt?: string };
+  submittedAt?: string;
+  timeline: KycTimelineEvent[];
+}
+
+export interface KycTimelineEvent {
+  eventType: string;
+  description: string;
+  createdAt: string;
+}
+
+export interface KycDocumentInfo {
+  id: string;
+  documentType: string;
+  fileName: string;
+  fileSize: number;
+  status: string;
+  ocrData?: string;
+  qualityScore: number;
+}
+
+export interface KycSubmitResult {
+  status: string;
+  message: string;
+  submittedAt: string;
+}
+
+export interface KycAdminApp {
+  id: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  status: string;
+  applicationType: string;
+  riskScore: number;
+  fraudScore: number;
+  aiConfidenceScore: number;
+  country?: string;
+  submittedAt?: string;
+  createdAt: string;
+}
+
+export interface KycAdminDetail {
+  id: string;
+  status: string;
+  applicationType: string;
+  riskScore: number;
+  fraudScore: number;
+  aiConfidenceScore: number;
+  personalInfo?: {
+    firstName: string;
+    middleName?: string;
+    lastName: string;
+    dateOfBirth: string;
+    gender: string;
+    nationality: string;
+    countryOfResidence: string;
+    nationalIdNumber?: string;
+    passportNumber?: string;
+    driversLicenseNumber?: string;
+    taxNumber?: string;
+  };
+  contact?: {
+    phoneCountryCode?: string;
+    residentialAddress?: string;
+    province?: string;
+    city?: string;
+    postalCode?: string;
+  };
+  bank?: {
+    bankName: string;
+    accountNumber: string;
+    branchCode?: string;
+    accountHolderName: string;
+  };
+  business?: {
+    businessName: string;
+    registrationNumber: string;
+    taxNumber?: string;
+    vatNumber?: string;
+    industry?: string;
+    website?: string;
+    yearsInOperation?: string;
+  };
+  documents: KycDocumentInfo[];
+  reviews: { id: string; reviewerName: string; action: string; notes?: string; createdAt: string }[];
+  timeline: KycTimelineEvent[];
+  userName: string;
+  userEmail: string;
+  submittedAt?: string;
+  reviewedAt?: string;
+}
+
+export interface KycAnalytics {
+  totalApplications: number;
+  pendingReview: number;
+  approved: number;
+  rejected: number;
+  averageReviewTimeHours: number;
+  fraudDetectionRate: number;
+  aiSuccessRate: number;
+  countryDistribution: Record<string, number>;
+  dailyVolume: { date: string; count: number }[];
+}
+
+export const kycApi = {
+  getStatus: () => api.get<KycStatusInfo>("/kyc/status"),
+  start: (type = "individual") => api.post<KycStatusInfo>(`/kyc/start?type=${type}`),
+  updatePersonalInfo: (data: Record<string, unknown>) => api.put("/kyc/personal-info", data),
+  updateContact: (data: Record<string, unknown>) => api.put("/kyc/contact", data),
+  uploadDocument: (documentType: string, documentSide: string, file: File) => {
+    const formData = new FormData();
+    formData.append("documentType", documentType);
+    formData.append("documentSide", documentSide);
+    formData.append("file", file);
+    return api.post<KycDocumentInfo>("/kyc/documents", formData, { headers: { "Content-Type": "multipart/form-data" } });
+  },
+  updateBank: (data: Record<string, unknown>) => api.put("/kyc/bank", data),
+  updateBusiness: (data: Record<string, unknown>) => api.put("/kyc/business", data),
+  submitForReview: () => api.post<KycSubmitResult>("/kyc/submit"),
+  getDocuments: () => api.get<KycDocumentInfo[]>("/kyc/documents"),
+
+  // Admin
+  getApplications: (status?: string, country?: string) => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (country) params.set("country", country);
+    return api.get<KycAdminApp[]>(`/kyc/admin/applications?${params.toString()}`);
+  },
+  getApplicationDetail: (id: string) => api.get<KycAdminDetail>(`/kyc/admin/applications/${id}`),
+  reviewApplication: (id: string, data: { action: string; notes?: string }) =>
+    api.post(`/kyc/admin/applications/${id}/review`, data),
+  getAnalytics: () => api.get<KycAnalytics>("/kyc/admin/analytics"),
+};

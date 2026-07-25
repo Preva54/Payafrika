@@ -31,6 +31,10 @@ public class AppDbContext : DbContext
     public DbSet<ConnectedDevice> ConnectedDevices => Set<ConnectedDevice>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<Integration> Integrations => Set<Integration>();
+    public DbSet<KycApplication> KycApplications => Set<KycApplication>();
+    public DbSet<KycDocument> KycDocuments => Set<KycDocument>();
+    public DbSet<KycReview> KycReviews => Set<KycReview>();
+    public DbSet<KycTimelineEvent> KycTimelineEvents => Set<KycTimelineEvent>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -251,6 +255,53 @@ public class AppDbContext : DbContext
                   .OnDelete(DeleteBehavior.Cascade);
 
             entity.HasIndex(i => new { i.UserId, i.Provider }).IsUnique();
+        });
+
+        modelBuilder.Entity<KycApplication>(entity =>
+        {
+            entity.HasOne(a => a.User)
+                  .WithMany()
+                  .HasForeignKey(a => a.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(a => a.UserId).IsUnique();
+            entity.HasIndex(a => a.Status);
+            entity.HasIndex(a => a.CreatedAt);
+        });
+
+        modelBuilder.Entity<KycDocument>(entity =>
+        {
+            entity.HasOne(d => d.KycApplication)
+                  .WithMany(a => a.Documents)
+                  .HasForeignKey(d => d.KycApplicationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(d => d.KycApplicationId);
+            entity.HasIndex(d => d.DocumentType);
+        });
+
+        modelBuilder.Entity<KycReview>(entity =>
+        {
+            entity.HasOne(r => r.KycApplication)
+                  .WithMany(a => a.Reviews)
+                  .HasForeignKey(r => r.KycApplicationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(r => r.Reviewer)
+                  .WithMany()
+                  .HasForeignKey(r => r.ReviewerId)
+                  .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<KycTimelineEvent>(entity =>
+        {
+            entity.HasOne(t => t.KycApplication)
+                  .WithMany(a => a.TimelineEvents)
+                  .HasForeignKey(t => t.KycApplicationId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(t => t.KycApplicationId);
+            entity.HasIndex(t => t.CreatedAt);
         });
     }
 }
