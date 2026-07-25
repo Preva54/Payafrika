@@ -11,7 +11,7 @@ import { motion } from "framer-motion"
 import {
   Shield, ShieldCheck, ShieldAlert, IdCard, MapPin, Phone,
   Mail, Camera, Building2, Landmark, Receipt, ArrowRight,
-  CheckCircle2, Clock, AlertCircle, XCircle, Loader2
+  CheckCircle2, Clock, AlertCircle, XCircle, Loader2, WifiOff
 } from "lucide-react"
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: React.ReactNode }> = {
@@ -37,10 +37,13 @@ export default function KycDashboardPage() {
   const { user } = useAuthStore()
   const [status, setStatus] = useState<KycStatusInfo | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
   const [starting, setStarting] = useState(false)
 
   useEffect(() => {
-    kycApi.getStatus().then((res) => { setStatus(res); setLoading(false) })
+    kycApi.getStatus()
+      .then((res) => { setStatus(res); setLoading(false) })
+      .catch(() => { setError("Could not connect to verification service. Make sure the backend server is running."); setLoading(false) })
   }, [])
 
   const startApplication = async () => {
@@ -57,6 +60,20 @@ export default function KycDashboardPage() {
       <div className="h-8 bg-muted rounded w-48 animate-pulse" />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {Array.from({ length: 4 }).map((_, i) => <div key={i} className="glass-card rounded-2xl p-6 animate-pulse"><div className="h-4 bg-muted rounded w-24 mb-3" /><div className="h-12 bg-muted rounded-xl" /></div>)}
+      </div>
+    </div>
+  )
+
+  if (error) return (
+    <div className="space-y-6">
+      <h1 className="text-2xl font-bold gradient-text">Identity Verification</h1>
+      <div className="glass-card rounded-2xl p-8 text-center">
+        <div className="h-16 w-16 rounded-2xl bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+          <WifiOff className="h-8 w-8 text-amber-500" />
+        </div>
+        <h2 className="text-xl font-bold mb-2">Backend Not Connected</h2>
+        <p className="text-muted-foreground max-w-md mx-auto">{error}</p>
+        <p className="text-sm text-muted-foreground mt-2">Start the .NET backend server locally, or deploy it and update <code className="text-primary">NEXT_PUBLIC_API_URL</code>.</p>
       </div>
     </div>
   )
