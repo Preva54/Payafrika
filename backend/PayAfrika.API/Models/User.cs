@@ -37,4 +37,10 @@ public class User
     public ICollection<ScheduledPayment> ScheduledPayments { get; set; } = new List<ScheduledPayment>();
     public ICollection<WalletBalance> WalletBalances { get; set; } = new List<WalletBalance>();
     public ICollection<LinkedBank> LinkedBanks { get; set; } = new List<LinkedBank>();
+
+    public ICollection<SupportTicket> SupportTickets { get; set; } = new List<SupportTicket>();
+    public ICollection<SupportTicket> AssignedTickets { get; set; } = new List<SupportTicket>();
+    public ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
+    public ICollection<TicketSatisfaction> Satisfactions { get; set; } = new List<TicketSatisfaction>();
+    public ICollection<KnowledgeBaseArticle> AuthoredArticles { get; set; } = new List<KnowledgeBaseArticle>();
 }

@@ -522,9 +522,182 @@ export const exchangeRatesApi = {
   get: () => api.get<ExchangeRate[]>("/exchangerates"),
 }
 
+export interface PaginatedResponse {
+  data: T[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
 export const dashboardApi = {
   loans: () => api.get<LoanResponse[]>("/loans"),
   wallet: () => api.get<WalletResponse>("/wallet"),
   transactions: () => api.get<Transaction[]>("/wallet/transactions"),
   user: () => api.get<UserInfo>("/auth/me"),
+};
+
+export interface SupportTicket {
+  id: string;
+  subject: string;
+  description: string;
+  status: string;
+  priority: string;
+  category: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  assignedToId?: string;
+  assignedToName?: string;
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
+  closedAt?: string;
+  messageCount: number;
+  unreadCount: number;
+  attachments: TicketAttachment[];
 }
+
+export interface TicketAttachment {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  ticketId: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  userAvatar: string;
+  content: string;
+  isFromAgent: boolean;
+  isInternalNote: boolean;
+  createdAt: string;
+  readAt?: string;
+  attachments: ChatAttachment[];
+}
+
+export interface ChatAttachment {
+  id: string;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  fileSize: number;
+  createdAt: string;
+}
+
+export interface TicketListQuery {
+  page?: number;
+  limit?: number;
+  status?: string;
+  category?: string;
+  priority?: string;
+  assignedToId?: string;
+  search?: string;
+  sortBy?: string;
+  sortOrder?: string;
+}
+
+export interface CreateTicketRequest {
+  subject: string;
+  description: string;
+  category?: string;
+  priority?: string;
+}
+
+export interface SendMessageRequest {
+  content: string;
+  isInternalNote?: boolean;
+}
+
+export interface KnowledgeBaseArticle {
+  id: string;
+  title: string;
+  slug: string;
+  content: string;
+  excerpt: string;
+  category: string;
+  status: string;
+  isFeatured: boolean;
+  viewCount: number;
+  helpfulCount: number;
+  notHelpfulCount: number;
+  authorId?: string;
+  authorName: string;
+  createdAt: string;
+  updatedAt: string;
+  publishedAt?: string;
+}
+
+export interface SupportCategory {
+  id: string;
+  name: string;
+  key: string;
+  description: string;
+  icon: string;
+  color: string;
+  displayOrder: number;
+  isActive: boolean;
+}
+
+export interface TicketStats {
+  totalTickets: number;
+  openTickets: number;
+  inProgressTickets: number;
+  resolvedTickets: number;
+  closedTickets: number;
+  averageResolutionTimeHours: number;
+  satisfactionScore: number;
+  ticketsByCategory: Record<string, number>;
+  ticketsByPriority: Record<string, number>;
+}
+
+export const supportApi = {
+  getTickets: (query?: TicketListQuery) => {
+    const params = new URLSearchParams();
+    if (query) {
+      Object.entries(query).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) params.append(key, String(value));
+      });
+    }
+    return api.get<PaginatedResponse<SupportTicket>>(`/support/tickets?${params.toString()}`);
+  },
+  getTicket: (id: string) => api.get<SupportTicket & { messages: ChatMessage[] }>(`/support/tickets/${id}`),
+  createTicket: (data: CreateTicketRequest) => api.post<SupportTicket>("/support/tickets", data),
+  updateTicket: (id: string, data: Partial<CreateTicketRequest>) => api.patch<SupportTicket>(`/support/tickets/${id}`, data),
+  addMessage: (id: string, data: SendMessageRequest) => api.post<ChatMessage>(`/support/tickets/${id}/messages`, data),
+  markMessageRead: (ticketId: string, messageId: string) => api.post(`/support/tickets/${ticketId}/messages/${messageId}/read`),
+  getCategories: () => api.get<SupportCategory[]>("/support/categories"),
+  getKnowledgeBase: (query?: { page?: number; limit?: number; category?: string; status?: string; isFeatured?: boolean; search?: string }) => {
+    const params = new URLSearchParams();
+    if (query) {
+      Object.entries(query).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) params.append(key, String(value));
+      });
+    }
+    return api.get<PaginatedResponse<KnowledgeBaseArticle>>(`/support/knowledge-base?${params.toString()}`);
+  },
+  getKnowledgeBaseArticle: (slug: string) => api.get<KnowledgeBaseArticle>(`/support/knowledge-base/${slug}`),
+  getStats: () => api.get<TicketStats>("/support/stats"),
+};
+
+export const adminSupportApi = {
+  getTickets: (query?: TicketListQuery) => {
+    const params = new URLSearchParams();
+    if (query) {
+      Object.entries(query).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) params.append(key, String(value));
+      });
+    }
+    return api.get<PaginatedResponse<SupportTicket>>(`/support/tickets?${params.toString()}`);
+  },
+  getTicket: (id: string) => api.get<SupportTicket & { messages: ChatMessage[] }>(`/support/tickets/${id}`),
+  updateTicket: (id: string, data: Partial<CreateTicketRequest & { assignedToId?: string }>) => api.patch<SupportTicket>(`/support/tickets/${id}`, data),
+  addMessage: (id: string, data: SendMessageRequest) => api.post<ChatMessage>(`/support/tickets/${id}/messages`, data),
+  getStats: () => api.get<TicketStats>("/support/stats"),
+};
