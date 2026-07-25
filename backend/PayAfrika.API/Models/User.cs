@@ -43,4 +43,5 @@ public class User
     public ICollection<ChatMessage> ChatMessages { get; set; } = new List<ChatMessage>();
     public ICollection<TicketSatisfaction> Satisfactions { get; set; } = new List<TicketSatisfaction>();
     public ICollection<KnowledgeBaseArticle> AuthoredArticles { get; set; } = new List<KnowledgeBaseArticle>();
+    public ICollection<Card> Cards { get; set; } = new List<Card>();
 }

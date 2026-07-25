@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PayAfrika.API.Data;
 using PayAfrika.API.DTOs;
 using PayAfrika.API.Models;
+using PayAfrika.API.Services;
 
 namespace PayAfrika.API.Controllers;
 
@@ -60,33 +61,59 @@ public class WalletController : ControllerBase
     {
         var userId = GetUserId();
         var balances = await _db.WalletBalances.Where(w => w.UserId == userId).ToListAsync();
+        var transactions = await _db.Transactions
+            .Where(t => t.UserId == userId)
+            .OrderByDescending(t => t.CreatedAt)
+            .ToListAsync();
 
-        var currencyInfo = new Dictionary<string, (string Flag, decimal ZARRate)>
+        var results = balances.Select(b =>
         {
-            ["ZAR"] = ("🇿🇦", 1m), ["USD"] = ("🇺🇸", 18.25m), ["EUR"] = ("🇪🇺", 20.00m),
-            ["GBP"] = ("🇬🇧", 23.10m), ["NGN"] = ("🇳🇬", 0.013m), ["KES"] = ("🇰🇪", 0.14m),
-            ["BTC"] = ("₿", 1200000m), ["ETH"] = ("⟠", 95000m), ["USDT"] = ("💵", 18.20m),
-        };
+            var currencyTxns = transactions.Where(t => t.Currency == b.Currency).ToList();
+            var recentTxns = currencyTxns.Where(t => t.CreatedAt >= DateTime.UtcNow.AddDays(-90)).ToList();
+            var oldTxns = currencyTxns.Where(t => t.CreatedAt < DateTime.UtcNow.AddDays(-90)).ToList();
 
-        var rng = new Random();
-        var results = balances.Select(b => new CurrencyWalletResponse
-        {
-            Currency = b.Currency,
-            Flag = currencyInfo.ContainsKey(b.Currency) ? currencyInfo[b.Currency].Flag : "🏦",
-            Balance = b.Balance,
-            ZARValue = b.Balance * (currencyInfo.ContainsKey(b.Currency) ? currencyInfo[b.Currency].ZARRate : 1m),
-            ChangePercent = Math.Round((decimal)(rng.NextDouble() * 12 - 6), 1),
-            MiniGraph = Enumerable.Range(0, 7).Select(_ => b.Balance * (0.95m + (decimal)rng.NextDouble() * 0.1m)).ToList(),
+            var recentNet = recentTxns.Sum(t => t.Type is "deposit" or "payment" or "exchange" ? t.Amount : -t.Amount);
+            var oldNet = oldTxns.Sum(t => t.Type is "deposit" or "payment" or "exchange" ? t.Amount : -t.Amount);
+            var changePercent = oldNet != 0
+                ? Math.Round(((recentNet - oldNet) / Math.Abs(oldNet)) * 100, 1)
+                : 0m;
+
+            var dailyBalances = Enumerable.Range(0, 7).Select(i =>
+            {
+                var day = DateTime.UtcNow.AddDays(-(6 - i));
+                var dayTxns = currencyTxns.Where(t => t.CreatedAt.Date <= day.Date).ToList();
+                var net = dayTxns.Sum(t => t.Type is "deposit" or "payment" ? t.Amount : -t.Amount);
+                return b.Balance - net;
+            }).ToList();
+
+            return new CurrencyWalletResponse
+            {
+                Currency = b.Currency,
+                Flag = ExchangeRateService.GetFlag(b.Currency),
+                Balance = b.Balance,
+                ZARValue = b.Balance * ExchangeRateService.GetZARRate(b.Currency),
+                ChangePercent = changePercent,
+                MiniGraph = dailyBalances,
+            };
         }).ToList();
 
         if (!results.Any(r => r.Currency == "ZAR"))
         {
             var zar = await _db.Wallets.FirstOrDefaultAsync(w => w.UserId == userId);
+            var zarTxns = transactions.Where(t => t.Currency == "ZAR").ToList();
+            var zarDaily = Enumerable.Range(0, 7).Select(i =>
+            {
+                var day = DateTime.UtcNow.AddDays(-(6 - i));
+                var dayTxns = zarTxns.Where(t => t.CreatedAt.Date <= day.Date).ToList();
+                var net = dayTxns.Sum(t => t.Type is "deposit" or "payment" ? t.Amount : -t.Amount);
+                return (zar?.Balance ?? 0) - net;
+            }).ToList();
+
             results.Insert(0, new CurrencyWalletResponse
             {
                 Currency = "ZAR", Flag = "🇿🇦", Balance = zar?.Balance ?? 0,
                 ZARValue = zar?.Balance ?? 0, ChangePercent = 0.5m,
-                MiniGraph = Enumerable.Range(0, 7).Select(i => (zar?.Balance ?? 0) * (0.95m + (decimal)new Random().NextDouble() * 0.1m)).ToList(),
+                MiniGraph = zarDaily,
             });
         }
 
@@ -106,12 +133,13 @@ public class WalletController : ControllerBase
         var balance = await _db.WalletBalances.FirstOrDefaultAsync(b => b.UserId == userId && b.Currency == request.Currency);
         if (balance != null) { balance.Balance += request.Amount; balance.UpdatedAt = DateTime.UtcNow; }
 
+        var refSeq = await _db.Transactions.CountAsync(t => t.UserId == userId) + 1;
         _db.Transactions.Add(new Transaction
         {
             UserId = userId, Type = "deposit", Amount = request.Amount,
             Currency = request.Currency, Status = "completed",
             Description = request.Description ?? $"Deposit via {request.Method ?? "wallet"}",
-            Reference = $"DEP-{Guid.NewGuid().ToString()[..8].ToUpper()}",
+            Reference = $"DEP-{DateTime.UtcNow:yyyyMMdd}-{refSeq:D5}",
         });
 
         await _db.SaveChangesAsync();
@@ -133,12 +161,13 @@ public class WalletController : ControllerBase
         var balance = await _db.WalletBalances.FirstOrDefaultAsync(b => b.UserId == userId && b.Currency == request.Currency);
         if (balance != null) { balance.Balance -= request.Amount; balance.UpdatedAt = DateTime.UtcNow; }
 
+        var refSeq = await _db.Transactions.CountAsync(t => t.UserId == userId) + 1;
         _db.Transactions.Add(new Transaction
         {
             UserId = userId, Type = "withdrawal", Amount = request.Amount,
             Currency = request.Currency, Status = "completed",
             Description = request.Description ?? $"Withdraw to {request.Method ?? "bank"}",
-            Reference = $"WTH-{Guid.NewGuid().ToString()[..8].ToUpper()}",
+            Reference = $"WTH-{DateTime.UtcNow:yyyyMMdd}-{refSeq:D5}",
         });
 
         await _db.SaveChangesAsync();
@@ -157,10 +186,7 @@ public class WalletController : ControllerBase
         if (balance != null && balance.Balance < request.Amount)
             return BadRequest(new { error = "Insufficient balance." });
 
-        var rates = new Dictionary<string, decimal> { ["ZAR"] = 1m, ["USD"] = 18.25m, ["EUR"] = 20m, ["GBP"] = 23.1m, ["NGN"] = 0.013m, ["KES"] = 0.14m, ["BTC"] = 1200000m, ["ETH"] = 95000m, ["USDT"] = 18.2m };
-        var fromRate = rates.GetValueOrDefault(request.FromCurrency, 1m);
-        var toRate = rates.GetValueOrDefault(request.ToCurrency, 1m);
-        var convertedAmount = request.Amount * (fromRate / toRate);
+        var convertedAmount = ExchangeRateService.Convert(request.Amount, request.FromCurrency, request.ToCurrency);
 
         if (request.FromCurrency == "ZAR") wallet.Balance -= request.Amount;
         if (balance != null) { balance.Balance -= request.Amount; balance.UpdatedAt = DateTime.UtcNow; }
@@ -168,12 +194,13 @@ public class WalletController : ControllerBase
         var toBalance = await _db.WalletBalances.FirstOrDefaultAsync(b => b.UserId == userId && b.Currency == request.ToCurrency);
         if (toBalance != null) { toBalance.Balance += convertedAmount; toBalance.UpdatedAt = DateTime.UtcNow; }
 
+        var refSeq = await _db.Transactions.CountAsync(t => t.UserId == userId) + 1;
         _db.Transactions.Add(new Transaction
         {
             UserId = userId, Type = "transfer", Amount = request.Amount,
             Currency = request.FromCurrency, Status = "completed",
             Description = $"Transferred {request.Amount} {request.FromCurrency} to {request.ToCurrency}",
-            Reference = $"TRF-{Guid.NewGuid().ToString()[..8].ToUpper()}",
+            Reference = $"TRF-{DateTime.UtcNow:yyyyMMdd}-{refSeq:D5}",
         });
 
         await _db.SaveChangesAsync();
@@ -184,20 +211,19 @@ public class WalletController : ControllerBase
     public async Task<ActionResult> Exchange([FromBody] ExchangeRequest request)
     {
         var userId = GetUserId();
-        var rates = new Dictionary<string, decimal> { ["ZAR"] = 1m, ["USD"] = 18.25m, ["EUR"] = 20m, ["GBP"] = 23.1m, ["NGN"] = 0.013m, ["KES"] = 0.14m, ["BTC"] = 1200000m, ["ETH"] = 95000m, ["USDT"] = 18.2m };
-        var fromRate = rates.GetValueOrDefault(request.FromCurrency, 1m);
-        var toRate = rates.GetValueOrDefault(request.ToCurrency, 1m);
-        var converted = request.Amount * (fromRate / toRate);
-        var fee = request.Amount * 0.005m;
-        var spread = request.Amount * (fromRate / toRate) * 0.01m;
-
         var fromBalance = await _db.WalletBalances.FirstOrDefaultAsync(b => b.UserId == userId && b.Currency == request.FromCurrency);
         var wallet = await _db.Wallets.FirstAsync(w => w.UserId == userId);
+
+        var fee = request.Amount * 0.005m;
         var totalDeduction = request.Amount + fee;
+
         if (request.FromCurrency == "ZAR" && wallet.Balance < totalDeduction)
             return BadRequest(new { error = "Insufficient balance." });
         if (fromBalance != null && fromBalance.Balance < totalDeduction)
             return BadRequest(new { error = "Insufficient balance." });
+
+        var converted = ExchangeRateService.Convert(request.Amount, request.FromCurrency, request.ToCurrency);
+        var spread = request.Amount * (ExchangeRateService.GetZARRate(request.FromCurrency) / ExchangeRateService.GetZARRate(request.ToCurrency)) * 0.01m;
 
         if (request.FromCurrency == "ZAR") wallet.Balance -= totalDeduction;
         if (fromBalance != null) { fromBalance.Balance -= totalDeduction; fromBalance.UpdatedAt = DateTime.UtcNow; }
@@ -205,29 +231,31 @@ public class WalletController : ControllerBase
         var toBalance = await _db.WalletBalances.FirstOrDefaultAsync(b => b.UserId == userId && b.Currency == request.ToCurrency);
         if (toBalance != null) { toBalance.Balance += converted; toBalance.UpdatedAt = DateTime.UtcNow; }
 
+        var refSeq = await _db.Transactions.CountAsync(t => t.UserId == userId) + 1;
         _db.Transactions.Add(new Transaction
         {
             UserId = userId, Type = "exchange", Amount = request.Amount,
             Currency = request.FromCurrency, Status = "completed",
             Description = $"Exchanged {request.Amount} {request.FromCurrency} to {Math.Round(converted, 2)} {request.ToCurrency}",
-            Reference = $"EXC-{Guid.NewGuid().ToString()[..8].ToUpper()}",
+            Reference = $"EXC-{DateTime.UtcNow:yyyyMMdd}-{refSeq:D5}",
         });
 
         await _db.SaveChangesAsync();
-        return Ok(new { fromAmount = request.Amount, toAmount = Math.Round(converted, 2), fee = Math.Round(fee, 2), rate = Math.Round(fromRate / toRate, 4), fromCurrency = request.FromCurrency, toCurrency = request.ToCurrency });
+        var rate = ExchangeRateService.GetZARRate(request.FromCurrency) / ExchangeRateService.GetZARRate(request.ToCurrency);
+        return Ok(new { fromAmount = request.Amount, toAmount = Math.Round(converted, 2), fee = Math.Round(fee, 2), rate = Math.Round(rate, 4), fromCurrency = request.FromCurrency, toCurrency = request.ToCurrency });
     }
 
     [HttpGet("exchange-rates")]
     [AllowAnonymous]
     public ActionResult<List<ExchangeRateResponse>> GetExchangeRates()
     {
-        var pairs = new[] { ("ZAR", "USD"), ("ZAR", "EUR"), ("ZAR", "GBP"), ("USD", "EUR"), ("USD", "GBP"), ("EUR", "GBP"), ("ZAR", "NGN"), ("ZAR", "KES"), ("USD", "NGN"), ("USD", "KES") };
-        var rates = new Dictionary<string, decimal> { ["ZAR"] = 1m, ["USD"] = 18.25m, ["EUR"] = 20m, ["GBP"] = 23.1m, ["NGN"] = 0.013m, ["KES"] = 0.14m };
+        var pairs = ExchangeRateService.GetExchangePairs();
+        var lastUpdated = ExchangeRateService.LastUpdated.ToString("g");
 
         return Ok(pairs.Select(p =>
         {
-            var rate = rates[p.Item1] / rates[p.Item2];
-            return new ExchangeRateResponse { From = p.Item1, To = p.Item2, Rate = Math.Round(rate, 4), Spread = Math.Round(rate * 0.01m, 4), LastUpdated = DateTime.UtcNow.ToString("g") };
+            var rate = ExchangeRateService.GetZARRate(p.From) / ExchangeRateService.GetZARRate(p.To);
+            return new ExchangeRateResponse { From = p.From, To = p.To, Rate = Math.Round(rate, 4), Spread = Math.Round(rate * 0.01m, 4), LastUpdated = lastUpdated };
         }).ToList());
     }
 
@@ -322,25 +350,22 @@ public class WalletController : ControllerBase
     }
 
     [HttpGet("security")]
-    public ActionResult<SecurityInfoResponse> GetSecurity()
+    public async Task<ActionResult<SecurityInfoResponse>> GetSecurity()
     {
+        var userId = GetUserId();
+        var user = await _db.Users.FindAsync(userId);
+
         return Ok(new SecurityInfoResponse
         {
-            LoginHistory = Enumerable.Range(0, 5).Select(i => new LoginSession
+            LoginHistory = new List<LoginSession>
             {
-                Id = Guid.NewGuid().ToString(), Device = new[] { "Chrome on Windows", "Safari on iPhone", "Firefox on macOS", "Edge on Windows", "Chrome on Android" }[i],
-                Location = new[] { "Cape Town, ZA", "Johannesburg, ZA", "Remote", "Lagos, NG", "Nairobi, KE" }[i],
-                Ip = $"192.168.{i}.{i * 10}",
-                Time = DateTime.UtcNow.AddDays(-i * 3),
-                IsCurrent = i == 0,
-            }).ToList(),
-            ActiveDevices = Enumerable.Range(0, 2).Select(i => new ActiveDevice
-            {
-                Id = Guid.NewGuid().ToString(), Name = i == 0 ? "Windows PC" : "iPhone 15",
-                Type = i == 0 ? "Desktop" : "Mobile", LastActive = DateTime.UtcNow.AddHours(-i),
-            }).ToList(),
-            BiometricEnabled = true, TwoFactorEnabled = false, SecurityScore = 78,
-            TrustedDevices = new List<string> { "Windows PC - Chrome", "iPhone 15 - Safari" },
+                new() { Id = Guid.NewGuid().ToString(), Device = "Account Created", Location = user?.Country ?? "Unknown", Ip = "---", Time = user?.CreatedAt ?? DateTime.UtcNow, IsCurrent = false },
+            },
+            ActiveDevices = new List<ActiveDevice>(),
+            BiometricEnabled = user?.TwoFactorEnabled ?? false,
+            TwoFactorEnabled = user?.TwoFactorEnabled ?? false,
+            SecurityScore = CalculateSecurityScore(user),
+            TrustedDevices = new List<string>(),
         });
     }
 
@@ -366,26 +391,41 @@ public class WalletController : ControllerBase
     }
 
     [HttpGet("qr")]
-    public ActionResult<QRResponse> GetQR([FromQuery] decimal? amount, [FromQuery] string currency = "ZAR", [FromQuery] string? description = null)
+    public async Task<ActionResult<QRResponse>> GetQR([FromQuery] decimal? amount, [FromQuery] string currency = "ZAR", [FromQuery] string? description = null)
     {
+        var userId = GetUserId();
+        var wallet = await _db.Wallets.FirstOrDefaultAsync(w => w.UserId == userId);
+
         return Ok(new QRResponse
         {
             QrCode = $"payafrika://wallet/pay?amount={amount ?? 0}&currency={currency}",
             PaymentLink = $"https://payafrika.vercel.app/pay?amount={amount ?? 0}&currency={currency}",
-            WalletAddress = Guid.NewGuid().ToString(),
-            AccountNumber = $"PAYA{DateTime.UtcNow:yyyyMMdd}",
+            WalletAddress = wallet?.Id.ToString() ?? userId.ToString(),
+            AccountNumber = $"PAYA{wallet?.Id.ToString()[..8].ToUpper() ?? userId.ToString()[..8].ToUpper()}",
         });
     }
 
     [HttpGet("cards")]
-    public ActionResult<List<CardResponse>> GetCards()
+    public async Task<ActionResult<List<CardResponse>>> GetCards()
     {
-        return Ok(new List<CardResponse>
+        var userId = GetUserId();
+        var cards = await _db.Cards.Where(c => c.UserId == userId && c.IsActive).ToListAsync();
+
+        if (!cards.Any())
         {
-            new() { Id = Guid.NewGuid().ToString(), Type = "Debit", LastFour = "4582", Expiry = "08/28", IsFrozen = false, IsVirtual = false, Limit = 50000 },
-            new() { Id = Guid.NewGuid().ToString(), Type = "Virtual", LastFour = "7731", Expiry = "12/27", IsFrozen = false, IsVirtual = true, Limit = 10000 },
-            new() { Id = Guid.NewGuid().ToString(), Type = "Credit", LastFour = "9904", Expiry = "03/29", IsFrozen = true, IsVirtual = false, Limit = 100000 },
-        });
+            return Ok(new List<CardResponse>());
+        }
+
+        return Ok(cards.Select(c => new CardResponse
+        {
+            Id = c.Id.ToString(),
+            Type = c.Type,
+            LastFour = c.LastFour,
+            Expiry = c.Expiry,
+            IsFrozen = c.IsFrozen,
+            IsVirtual = c.IsVirtual,
+            Limit = c.Limit,
+        }).ToList());
     }
 
     [HttpGet("transactions")]
@@ -398,6 +438,17 @@ public class WalletController : ControllerBase
             .Skip((page - 1) * limit).Take(limit)
             .ToListAsync();
         return Ok(transactions);
+    }
+
+    private int CalculateSecurityScore(User? user)
+    {
+        if (user == null) return 0;
+        var score = 30;
+        if (user.IsEmailVerified) score += 20;
+        if (user.TwoFactorEnabled) score += 25;
+        if (user.KYCStatus == "verified") score += 15;
+        if (!string.IsNullOrEmpty(user.PhoneNumber)) score += 10;
+        return Math.Min(score, 100);
     }
 
     private Guid GetUserId()

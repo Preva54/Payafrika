@@ -23,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<TicketSatisfaction> TicketSatisfactions => Set<TicketSatisfaction>();
     public DbSet<KnowledgeBaseArticle> KnowledgeBaseArticles => Set<KnowledgeBaseArticle>();
     public DbSet<SupportCategory> SupportCategories => Set<SupportCategory>();
+    public DbSet<Card> Cards => Set<Card>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -159,6 +160,17 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(c => c.Key).IsUnique();
             entity.HasIndex(c => c.DisplayOrder);
+        });
+
+        modelBuilder.Entity<Card>(entity =>
+        {
+            entity.HasOne(c => c.User)
+                  .WithMany(u => u.Cards)
+                  .HasForeignKey(c => c.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasIndex(c => c.UserId);
+            entity.HasIndex(c => c.IsActive);
         });
     }
 }
