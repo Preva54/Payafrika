@@ -440,7 +440,7 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 
-    var testEmails = new[] { "test@payafrika.com", "demo@test.com" };
+    var testEmails = new[] { "test@payafrika.com", "demo@test.com", "testkyc4@example.com", "testkyc3@example.com", "testkyc2@example.com", "test-kyc@example.com", "meetpeterthecoder@gmail.com" };
     var testUsers = db.Users.Where(u => testEmails.Contains(u.Email)).ToList();
     if (testUsers.Count != 0)
     {
