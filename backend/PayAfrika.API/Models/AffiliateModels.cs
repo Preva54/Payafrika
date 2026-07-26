@@ -6,7 +6,7 @@ public class Affiliate
 {
     public Guid Id { get; set; } = Guid.NewGuid();
     public Guid UserId { get; set; }
-    [Required, MaxLength(50)] public string ReferralCode { get; set; } = string.Empty;
+    [MaxLength(50)] public string ReferralCode { get; set; } = string.Empty;
     [MaxLength(50)] public string Status { get; set; } = "pending";
     [MaxLength(300)] public string BusinessName { get; set; } = string.Empty;
     [MaxLength(500)] public string Website { get; set; } = string.Empty;
