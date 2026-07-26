@@ -105,7 +105,7 @@ using (var scope = app.Services.CreateScope())
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     db.Database.EnsureCreated();
 
-    db.Database.ExecuteSqlRaw($@"
+    db.Database.ExecuteSqlRaw(@"
         CREATE TABLE IF NOT EXISTS ""Beneficiaries"" (
             ""Id"" UUID PRIMARY KEY,
             ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id""),
@@ -908,7 +908,7 @@ using (var scope = app.Services.CreateScope())
         );
     ");
 
-    db.Database.ExecuteSqlRaw($@"
+    db.Database.ExecuteSqlRaw(@"
         CREATE TABLE IF NOT EXISTS ""PlatformSettings"" (
             ""Id"" UUID PRIMARY KEY,
             ""Category"" VARCHAR(100) NOT NULL,

@@ -74,6 +74,27 @@ public class AffiliateController : ControllerBase
     [AllowAnonymous]
     [HttpGet("dashboard")] public async Task<IActionResult> GetDashboard() { try { var aff = await GetAffiliate(); var referralsCount = await _db.Referrals.CountAsync(x => x.AffiliateId == aff.Id); var commissionsCount = await _db.Commissions.CountAsync(x => x.AffiliateId == aff.Id); var campaignsCount = await _db.AffiliateCampaigns.CountAsync(x => x.AffiliateId == aff.Id); var pendingPayouts = await _db.Payouts.Where(x => x.AffiliateId == aff.Id && x.Status == "pending").SumAsync(x => x.Amount); var unreadNotifications = await _db.AffiliateNotifications.CountAsync(x => x.AffiliateId == aff.Id && !x.IsRead); return Ok(new { aff.TotalEarnings, aff.AvailableBalance, aff.PendingCommissions, aff.TotalPaid, aff.LifetimeReferrals, aff.ConversionRate, aff.Tier, referralsCount, commissionsCount, campaignsCount, pendingPayouts, unreadNotifications }); } catch { return Unauthorized(); } }
 
+    // ─── Admin: Dashboard ────────────────────────────────────────
+    [HttpGet("admin/dashboard")] public async Task<IActionResult> AdminGetDashboard()
+    {
+        var totalAffiliates = await _db.Affiliates.CountAsync();
+        var activeAffiliates = await _db.Affiliates.CountAsync(x => x.Status == "approved");
+        var pendingApprovals = await _db.Affiliates.CountAsync(x => x.Status == "pending");
+        var totalReferrals = await _db.Referrals.CountAsync();
+        var totalConversions = await _db.Referrals.CountAsync(x => x.Status == "converted");
+        var totalCommissions = await _db.Commissions.SumAsync(x => (decimal?)x.Amount) ?? 0;
+        var pendingPayouts = await _db.Payouts.CountAsync(x => x.Status == "pending");
+        var now = DateTime.UtcNow;
+        var monthStart = new DateTime(now.Year, now.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+        var monthlyReferrals = await _db.Referrals.CountAsync(x => x.CreatedAt >= monthStart);
+        var monthlyConversions = await _db.Referrals.CountAsync(x => x.Status == "converted" && x.ConvertedAt >= monthStart);
+        var monthlyCommissions = await _db.Commissions.Where(x => x.EarnedAt >= monthStart).SumAsync(x => (decimal?)x.Amount) ?? 0;
+        var openFraudFlags = await _db.FraudFlags.CountAsync(x => x.Status == "open");
+        var recentReferrals = await _db.Referrals.OrderByDescending(x => x.CreatedAt).Take(10).ToListAsync();
+        var topAffiliates = await _db.Affiliates.Where(x => x.Status == "approved").OrderByDescending(x => x.LifetimeReferrals).Take(10).Select(x => new { id = x.Id.ToString(), name = x.BusinessName, referrals = x.LifetimeReferrals, commissions = x.TotalEarnings }).ToListAsync();
+        return Ok(new { totalAffiliates, activeAffiliates, pendingApprovals, totalReferrals, totalConversions, totalCommissions, pendingPayouts, monthlyReferrals, monthlyConversions, monthlyCommissions, openFraudFlags, recentReferrals, topAffiliates });
+    }
+
     // ─── Admin: Affiliates ───────────────────────────────────────
     [HttpGet("admin/affiliates")] public async Task<IActionResult> AdminGetAffiliates() => Ok(await _db.Affiliates.OrderByDescending(x => x.CreatedAt).ToListAsync());
 

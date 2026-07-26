@@ -80,7 +80,7 @@ public class AuditService : IAuditService
             Browser = entry.Browser ?? userAgentInfo.Browser,
             OperatingSystem = entry.OperatingSystem ?? userAgentInfo.OS,
             DeviceType = entry.DeviceType ?? userAgentInfo.DeviceType,
-            SessionId = entry.SessionId ?? httpContext?.Session.Id ?? "",
+            SessionId = entry.SessionId ?? TryGetSessionId(httpContext) ?? "",
             Location = entry.Location ?? "",
             Country = entry.Country ?? "",
             City = entry.City ?? "",
@@ -111,6 +111,12 @@ public class AuditService : IAuditService
         if (httpContext?.User.Identity?.IsAuthenticated != true) return null;
         var sub = httpContext.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
         return sub != null && Guid.TryParse(sub, out var guid) ? guid : null;
+    }
+
+    private static string? TryGetSessionId(HttpContext? httpContext)
+    {
+        try { return httpContext?.Session?.Id; }
+        catch { return null; }
     }
 
     private static (string Browser, string OS, string DeviceType) ParseUserAgent(string ua)

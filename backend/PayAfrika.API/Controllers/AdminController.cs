@@ -38,25 +38,6 @@ public class AdminController : ControllerBase
         });
     }
 
-    [HttpGet("users")]
-    public async Task<ActionResult> GetUsers()
-    {
-        var users = await _db.Users
-            .OrderByDescending(u => u.CreatedAt)
-            .Select(u => new
-            {
-                u.Id,
-                u.FullName,
-                u.Email,
-                u.Role,
-                u.KYCStatus,
-                u.CreatedAt,
-            })
-            .ToListAsync();
-
-        return Ok(users);
-    }
-
     [HttpGet("loans")]
     public async Task<ActionResult> GetLoans()
     {
@@ -117,27 +98,6 @@ public class AdminController : ControllerBase
             .ToListAsync();
 
         return Ok(applications);
-    }
-
-    [HttpGet("roles")]
-    public async Task<ActionResult> GetRoles()
-    {
-        var roles = await _db.Users
-            .GroupBy(u => u.Role)
-            .Select(g => new
-            {
-                Role = g.Key,
-                Count = g.Count(),
-                Users = g.Select(u => new
-                {
-                    u.Id,
-                    u.FullName,
-                    u.Email,
-                }).ToList(),
-            })
-            .ToListAsync();
-
-        return Ok(roles);
     }
 
     [HttpGet("reports")]
