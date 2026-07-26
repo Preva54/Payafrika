@@ -74,6 +74,11 @@ public class AppDbContext : DbContext
     public DbSet<AffiliateNotification> AffiliateNotifications => Set<AffiliateNotification>();
     public DbSet<FraudFlag> FraudFlags => Set<FraudFlag>();
     public DbSet<Commission> Commissions => Set<Commission>();
+    public DbSet<RoleDefinition> RoleDefinitions => Set<RoleDefinition>();
+    public DbSet<Permission> Permissions => Set<Permission>();
+    public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
+    public DbSet<UserRoleAssignment> UserRoleAssignments => Set<UserRoleAssignment>();
+    public DbSet<Invitation> Invitations => Set<Invitation>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -430,6 +435,31 @@ public class AppDbContext : DbContext
         {
             e.HasOne(x => x.Affiliate).WithMany(x => x.Commissions).HasForeignKey(x => x.AffiliateId).OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.AffiliateId);
+            e.HasIndex(x => x.Status);
+        });
+
+        modelBuilder.Entity<RoleDefinition>(e =>
+        {
+            e.HasIndex(x => x.Name).IsUnique();
+            e.HasOne(x => x.ParentRole).WithMany(x => x.ChildRoles).HasForeignKey(x => x.ParentRoleId).OnDelete(DeleteBehavior.SetNull);
+        });
+        modelBuilder.Entity<Permission>(e =>
+        {
+            e.HasIndex(x => new { x.Module, x.Action }).IsUnique();
+        });
+        modelBuilder.Entity<RolePermission>(e =>
+        {
+            e.HasKey(x => new { x.RoleId, x.PermissionId });
+            e.HasOne(x => x.Role).WithMany(x => x.RolePermissions).HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Permission).WithMany(x => x.RolePermissions).HasForeignKey(x => x.PermissionId).OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<UserRoleAssignment>(e =>
+        {
+            e.HasOne(x => x.User).WithMany().HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Role).WithMany(x => x.UserAssignments).HasForeignKey(x => x.RoleId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.AssignedBy).WithMany().HasForeignKey(x => x.AssignedById).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.UserId);
+            e.HasIndex(x => x.RoleId);
             e.HasIndex(x => x.Status);
         });
     }

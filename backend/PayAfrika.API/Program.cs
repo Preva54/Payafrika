@@ -43,6 +43,7 @@ builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILoanService, LoanService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.Configure<FlutterwaveSettings>(builder.Configuration.GetSection("Payment:Flutterwave"));
@@ -85,6 +86,7 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<RateLimitingMiddleware>();
 app.UseMiddleware<AuditLogMiddleware>();
+app.UseMiddleware<PermissionMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -837,7 +839,131 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE INDEX IF NOT EXISTS ""IX_Commissions_AffiliateId"" ON ""Commissions""(""AffiliateId"");
         CREATE INDEX IF NOT EXISTS ""IX_Commissions_Status"" ON ""Commissions""(""Status"");
+
+        CREATE TABLE IF NOT EXISTS ""RoleDefinitions"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Name"" VARCHAR(100) NOT NULL,
+            ""Description"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""Department"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Color"" VARCHAR(20) NOT NULL DEFAULT '#0057FF',
+            ""Icon"" VARCHAR(50) NOT NULL DEFAULT 'Shield',
+            ""Priority"" INT NOT NULL DEFAULT 0,
+            ""IsSystem"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""ParentRoleId"" UUID NULL REFERENCES ""RoleDefinitions""(""Id"") ON DELETE SET NULL,
+            ""AllowedCountries"" VARCHAR(200) NOT NULL DEFAULT '[]',
+            ""AllowedDepartments"" VARCHAR(200) NOT NULL DEFAULT '[]',
+            ""Restrictions"" VARCHAR(500) NOT NULL DEFAULT '{{}}',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_RoleDefinitions_Name"" ON ""RoleDefinitions""(""Name"");
+
+        CREATE TABLE IF NOT EXISTS ""Permissions"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Module"" VARCHAR(100) NOT NULL,
+            ""Action"" VARCHAR(50) NOT NULL,
+            ""Description"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""GroupName"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""SortOrder"" INT NOT NULL DEFAULT 0
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Permissions_Module_Action"" ON ""Permissions""(""Module"", ""Action"");
+
+        CREATE TABLE IF NOT EXISTS ""RolePermissions"" (
+            ""RoleId"" UUID NOT NULL REFERENCES ""RoleDefinitions""(""Id"") ON DELETE CASCADE,
+            ""PermissionId"" UUID NOT NULL REFERENCES ""Permissions""(""Id"") ON DELETE CASCADE,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            PRIMARY KEY (""RoleId"", ""PermissionId"")
+        );
+
+        CREATE TABLE IF NOT EXISTS ""UserRoleAssignments"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""RoleId"" UUID NOT NULL REFERENCES ""RoleDefinitions""(""Id"") ON DELETE CASCADE,
+            ""Department"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Region"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""ExpiresAt"" TIMESTAMPTZ NULL,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'active',
+            ""AssignedById"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""Notes"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_UserRoleAssignments_UserId"" ON ""UserRoleAssignments""(""UserId"");
+        CREATE INDEX IF NOT EXISTS ""IX_UserRoleAssignments_RoleId"" ON ""UserRoleAssignments""(""RoleId"");
+        CREATE INDEX IF NOT EXISTS ""IX_UserRoleAssignments_Status"" ON ""UserRoleAssignments""(""Status"");
+
+        CREATE TABLE IF NOT EXISTS ""Invitations"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Email"" VARCHAR(200) NOT NULL,
+            ""RoleId"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Department"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'pending',
+            ""InvitedById"" UUID NULL,
+            ""ExpiresAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""AcceptedAt"" TIMESTAMPTZ NULL
+        );
     ");
+
+    // ─── Seed Default Roles & Permissions ──────────────────────
+    if (!db.RoleDefinitions.Any())
+    {
+        var sortOrder = 0;
+        var allPerms = new List<PayAfrika.API.Models.Permission>();
+        foreach (var (module, actions) in PayAfrika.API.Models.DefaultPermissions.Modules)
+        {
+            foreach (var action in actions)
+            {
+                var perm = new PayAfrika.API.Models.Permission
+                {
+                    Id = Guid.NewGuid(),
+                    Module = module,
+                    Action = action,
+                    Description = $"{action} in {module}",
+                    GroupName = module,
+                    SortOrder = sortOrder++,
+                };
+                db.Permissions.Add(perm);
+                allPerms.Add(perm);
+            }
+        }
+
+        var systemRoles = new[] { "super_admin", "admin", "compliance_officer", "finance_admin",
+            "risk_manager", "merchant_manager", "support_manager", "support_agent",
+            "marketing_manager", "content_editor", "affiliate_manager", "api_developer", "auditor", "read_only" };
+
+        foreach (var roleName in systemRoles)
+        {
+            var rolePerms = PayAfrika.API.Models.DefaultPermissions.GetRolePermissions(roleName);
+            var role = new PayAfrika.API.Models.RoleDefinition
+            {
+                Id = Guid.NewGuid(),
+                Name = roleName,
+                Description = GetRoleDescription(roleName),
+                Department = GetRoleDepartment(roleName),
+                Color = GetRoleColor(roleName),
+                Icon = GetRoleIcon(roleName),
+                Priority = Array.IndexOf(systemRoles, roleName),
+                IsSystem = true,
+                IsActive = true,
+            };
+            db.RoleDefinitions.Add(role);
+
+            foreach (var (module, actions) in rolePerms)
+            {
+                foreach (var action in actions)
+                {
+                    var perm = allPerms.FirstOrDefault(p => p.Module == module && p.Action == action);
+                    if (perm != null)
+                    {
+                        db.RolePermissions.Add(new PayAfrika.API.Models.RolePermission { RoleId = role.Id, PermissionId = perm.Id });
+                    }
+                }
+            }
+        }
+        db.SaveChanges();
+    }
 
     var adminEmail = builder.Configuration["AdminEmail"]
         ?? Environment.GetEnvironmentVariable("NEXT_PUBLIC_ADMIN_EMAIL")
@@ -850,22 +976,99 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 
-    var testEmails = new[] { "test@payafrika.com", "demo@test.com", "testkyc4@example.com", "testkyc3@example.com", "testkyc2@example.com", "test-kyc@example.com", "meetpeterthecoder@gmail.com" };
-    var testUsers = db.Users.Where(u => testEmails.Contains(u.Email)).ToList();
-    if (testUsers.Count != 0)
+    // Assign super_admin role to admin user
+    if (adminUser != null)
     {
-        var testUserIds = testUsers.Select(u => u.Id).ToList();
-        db.KycApplications.RemoveRange(db.KycApplications.Where(k => testUserIds.Contains(k.UserId)));
-        db.ActivityLogs.RemoveRange(db.ActivityLogs.Where(a => testUserIds.Contains(a.UserId)));
-        db.ConnectedDevices.RemoveRange(db.ConnectedDevices.Where(d => testUserIds.Contains(d.UserId)));
-        db.Integrations.RemoveRange(db.Integrations.Where(i => testUserIds.Contains(i.UserId)));
-        db.SupportTickets.RemoveRange(db.SupportTickets.Where(t => testUserIds.Contains(t.UserId)));
-        db.Loans.RemoveRange(db.Loans.Where(l => testUserIds.Contains(l.UserId)));
-        db.Transactions.RemoveRange(db.Transactions.Where(t => testUserIds.Contains(t.UserId)));
-        db.Wallets.RemoveRange(db.Wallets.Where(w => testUserIds.Contains(w.UserId)));
-        db.Users.RemoveRange(testUsers);
-        db.SaveChanges();
+        var superAdminRole = db.RoleDefinitions.FirstOrDefault(r => r.Name == "super_admin");
+        if (superAdminRole != null && !db.UserRoleAssignments.Any(a => a.UserId == adminUser.Id && a.RoleId == superAdminRole.Id))
+        {
+            db.UserRoleAssignments.Add(new PayAfrika.API.Models.UserRoleAssignment
+            {
+                Id = Guid.NewGuid(),
+                UserId = adminUser.Id,
+                RoleId = superAdminRole.Id,
+                Status = "active",
+            });
+            db.SaveChanges();
+        }
     }
+
 }
+
+static string GetRoleDescription(string name) => name switch
+{
+    "super_admin" => "Full platform access with all permissions",
+    "admin" => "Nearly full access except critical security settings",
+    "compliance_officer" => "KYC, AML, fraud detection, and regulatory compliance",
+    "finance_admin" => "Transactions, wallets, refunds, settlements, and billing",
+    "risk_manager" => "Fraud monitoring, chargebacks, AML alerts, and risk rules",
+    "merchant_manager" => "Merchant onboarding, approvals, KYC, and limits",
+    "support_manager" => "Tickets, live chat, escalations, and customer profiles",
+    "support_agent" => "Respond to tickets, chat, and view customer information",
+    "marketing_manager" => "CMS, blog, SEO, campaigns, and media library",
+    "content_editor" => "Write blogs, edit pages, upload media, save drafts",
+    "affiliate_manager" => "Affiliates, referral programs, commissions, and payouts",
+    "api_developer" => "API keys, webhooks, SDKs, and integrations",
+    "auditor" => "Read-only access to logs, reports, and KYC data",
+    "read_only" => "View-only access to assigned modules",
+    _ => "",
+};
+
+static string GetRoleDepartment(string name) => name switch
+{
+    "super_admin" => "Executive",
+    "admin" => "Executive",
+    "compliance_officer" => "Compliance",
+    "finance_admin" => "Finance",
+    "risk_manager" => "Risk",
+    "merchant_manager" => "Operations",
+    "support_manager" => "Support",
+    "support_agent" => "Support",
+    "marketing_manager" => "Marketing",
+    "content_editor" => "Marketing",
+    "affiliate_manager" => "Marketing",
+    "api_developer" => "Engineering",
+    "auditor" => "Compliance",
+    "read_only" => "Operations",
+    _ => "",
+};
+
+static string GetRoleColor(string name) => name switch
+{
+    "super_admin" => "#EF4444",
+    "admin" => "#F97316",
+    "compliance_officer" => "#22C55E",
+    "finance_admin" => "#3B82F6",
+    "risk_manager" => "#A855F7",
+    "merchant_manager" => "#06B6D4",
+    "support_manager" => "#14B8A6",
+    "support_agent" => "#84CC16",
+    "marketing_manager" => "#E91E63",
+    "content_editor" => "#EC4899",
+    "affiliate_manager" => "#F59E0B",
+    "api_developer" => "#6366F1",
+    "auditor" => "#8B5CF6",
+    "read_only" => "#6B7280",
+    _ => "#0057FF",
+};
+
+static string GetRoleIcon(string name) => name switch
+{
+    "super_admin" => "Shield",
+    "admin" => "ShieldCheck",
+    "compliance_officer" => "Scale",
+    "finance_admin" => "DollarSign",
+    "risk_manager" => "AlertTriangle",
+    "merchant_manager" => "Store",
+    "support_manager" => "HeadphonesIcon",
+    "support_agent" => "MessageCircle",
+    "marketing_manager" => "Megaphone",
+    "content_editor" => "PenSquare",
+    "affiliate_manager" => "UsersRound",
+    "api_developer" => "Code",
+    "auditor" => "Search",
+    "read_only" => "Eye",
+    _ => "Shield",
+};
 
 app.Run();
