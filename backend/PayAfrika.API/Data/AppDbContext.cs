@@ -30,6 +30,7 @@ public class AppDbContext : DbContext
     public DbSet<TeamMember> TeamMembers => Set<TeamMember>();
     public DbSet<ConnectedDevice> ConnectedDevices => Set<ConnectedDevice>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+    public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<Integration> Integrations => Set<Integration>();
     public DbSet<KycApplication> KycApplications => Set<KycApplication>();
     public DbSet<KycDocument> KycDocuments => Set<KycDocument>();
@@ -283,6 +284,27 @@ public class AppDbContext : DbContext
             entity.HasIndex(al => al.UserId);
             entity.HasIndex(al => al.CreatedAt);
             entity.HasIndex(al => al.Category);
+        });
+
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasOne(al => al.User)
+                  .WithMany()
+                  .HasForeignKey(al => al.UserId)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(al => al.UserId);
+            entity.HasIndex(al => al.CreatedAt);
+            entity.HasIndex(al => al.Module);
+            entity.HasIndex(al => al.Action);
+            entity.HasIndex(al => al.Severity);
+            entity.HasIndex(al => al.Result);
+            entity.HasIndex(al => al.Email);
+            entity.HasIndex(al => al.IPAddress);
+            entity.HasIndex(al => al.Country);
+            entity.HasIndex(al => al.IsSecurityAlert);
+            entity.HasIndex(al => al.ResourceId);
+            entity.HasIndex(al => al.CorrelationId);
         });
 
         modelBuilder.Entity<Integration>(entity =>

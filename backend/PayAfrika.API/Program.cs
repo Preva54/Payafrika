@@ -42,6 +42,8 @@ builder.Services.AddAuthorization();
 builder.Services.AddScoped<IJwtService, JwtService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILoanService, LoanService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
+builder.Services.AddHttpContextAccessor();
 
 builder.Services.Configure<FlutterwaveSettings>(builder.Configuration.GetSection("Payment:Flutterwave"));
 builder.Services.Configure<PaystackSettings>(builder.Configuration.GetSection("Payment:Paystack"));
@@ -82,6 +84,7 @@ var app = builder.Build();
 app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseMiddleware<RateLimitingMiddleware>();
+app.UseMiddleware<AuditLogMiddleware>();
 
 if (app.Environment.IsDevelopment())
 {
@@ -320,6 +323,55 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS ""IX_ActivityLogs_UserId"" ON ""ActivityLogs""(""UserId"");
         CREATE INDEX IF NOT EXISTS ""IX_ActivityLogs_CreatedAt"" ON ""ActivityLogs""(""CreatedAt"");
         CREATE INDEX IF NOT EXISTS ""IX_ActivityLogs_Category"" ON ""ActivityLogs""(""Category"");
+
+        CREATE TABLE IF NOT EXISTS ""AuditLogs"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""UserName"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""UserRole"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Email"" VARCHAR(300) NOT NULL DEFAULT '',
+            ""Action"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Module"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Resource"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""ResourceId"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""PreviousValue"" TEXT NOT NULL DEFAULT '',
+            ""NewValue"" TEXT NOT NULL DEFAULT '',
+            ""Metadata"" TEXT NOT NULL DEFAULT '{{}}',
+            ""IPAddress"" VARCHAR(50) NOT NULL DEFAULT '',
+            ""UserAgent"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""Browser"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""OperatingSystem"" VARCHAR(50) NOT NULL DEFAULT '',
+            ""DeviceType"" VARCHAR(50) NOT NULL DEFAULT '',
+            ""SessionId"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Location"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""Country"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""City"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Endpoint"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""HttpMethod"" VARCHAR(10) NOT NULL DEFAULT '',
+            ""HttpStatus"" INTEGER NULL,
+            ""Result"" VARCHAR(20) NOT NULL DEFAULT 'success',
+            ""Severity"" VARCHAR(20) NOT NULL DEFAULT 'info',
+            ""ResponseTimeMs"" BIGINT NULL,
+            ""Department"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""IsSecurityAlert"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""IsAcknowledged"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""AcknowledgedById"" UUID NULL,
+            ""AcknowledgedAt"" TIMESTAMPTZ NULL,
+            ""CorrelationId"" UUID NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_UserId"" ON ""AuditLogs""(""UserId"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_CreatedAt"" ON ""AuditLogs""(""CreatedAt"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_Module"" ON ""AuditLogs""(""Module"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_Action"" ON ""AuditLogs""(""Action"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_Severity"" ON ""AuditLogs""(""Severity"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_Result"" ON ""AuditLogs""(""Result"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_Email"" ON ""AuditLogs""(""Email"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_IPAddress"" ON ""AuditLogs""(""IPAddress"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_Country"" ON ""AuditLogs""(""Country"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_IsSecurityAlert"" ON ""AuditLogs""(""IsSecurityAlert"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_ResourceId"" ON ""AuditLogs""(""ResourceId"");
+        CREATE INDEX IF NOT EXISTS ""IX_AuditLogs_CorrelationId"" ON ""AuditLogs""(""CorrelationId"");
 
         CREATE TABLE IF NOT EXISTS ""Integrations"" (
             ""Id"" UUID PRIMARY KEY,
