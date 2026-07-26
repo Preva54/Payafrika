@@ -635,6 +635,156 @@ using (var scope = app.Services.CreateScope())
             ""TargetAudience"" TEXT NULL, ""Content"" TEXT NOT NULL DEFAULT '',
             ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+
+        CREATE TABLE IF NOT EXISTS ""Affiliates"" (
+            ""Id"" UUID PRIMARY KEY, ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""ReferralCode"" VARCHAR(50) NOT NULL, ""Status"" VARCHAR(50) NOT NULL DEFAULT 'pending',
+            ""BusinessName"" VARCHAR(300) NOT NULL DEFAULT '', ""Website"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""SocialLinks"" TEXT NOT NULL DEFAULT '', ""Country"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""PreferredCurrency"" VARCHAR(10) NOT NULL DEFAULT 'ZAR', ""TaxInfo"" TEXT NOT NULL DEFAULT '',
+            ""PaymentMethod"" VARCHAR(100) NOT NULL DEFAULT '', ""BankDetails"" TEXT NOT NULL DEFAULT '',
+            ""TotalEarnings"" DECIMAL(18,2) NOT NULL DEFAULT 0, ""AvailableBalance"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""PendingCommissions"" DECIMAL(18,2) NOT NULL DEFAULT 0, ""TotalPaid"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""LifetimeReferrals"" INT NOT NULL DEFAULT 0, ""ConversionRate"" DECIMAL(5,2) NOT NULL DEFAULT 0,
+            ""Tier"" VARCHAR(50) NOT NULL DEFAULT 'Bronze',
+            ""ApplicationNotes"" TEXT NOT NULL DEFAULT '', ""RejectedReason"" TEXT NOT NULL DEFAULT '',
+            ""ReviewedById"" UUID NULL, ""ReviewedAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(), ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Affiliates_UserId"" ON ""Affiliates""(""UserId"");
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Affiliates_ReferralCode"" ON ""Affiliates""(""ReferralCode"");
+        CREATE INDEX IF NOT EXISTS ""IX_Affiliates_Status"" ON ""Affiliates""(""Status"");
+        CREATE INDEX IF NOT EXISTS ""IX_Affiliates_Tier"" ON ""Affiliates""(""Tier"");
+
+        CREATE TABLE IF NOT EXISTS ""CommissionRules"" (
+            ""Id"" UUID PRIMARY KEY, ""Name"" VARCHAR(300) NOT NULL, ""Description"" TEXT NOT NULL DEFAULT '',
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'percentage', ""TargetEntity"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Amount"" DECIMAL(18,2) NOT NULL DEFAULT 0, ""Percentage"" DECIMAL(5,2) NOT NULL DEFAULT 0,
+            ""TierMin"" INT NOT NULL DEFAULT 0, ""TierMax"" INT NOT NULL DEFAULT 0,
+            ""RecurringMonths"" INT NOT NULL DEFAULT 0, ""RecurringAmount"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE, ""SortOrder"" INT NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_CommissionRules_IsActive"" ON ""CommissionRules""(""IsActive"");
+
+        CREATE TABLE IF NOT EXISTS ""Referrals"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""AffiliateId"" UUID NOT NULL REFERENCES ""Affiliates""(""Id"") ON DELETE CASCADE,
+            ""ReferralCode"" VARCHAR(100) NOT NULL DEFAULT '', ""CampaignId"" UUID NULL,
+            ""ReferredEmail"" VARCHAR(300) NOT NULL DEFAULT '', ""ReferredUserId"" UUID NULL,
+            ""ReferredName"" VARCHAR(300) NOT NULL DEFAULT '',
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'clicked',
+            ""RevenueGenerated"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""CommissionEarned"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""Source"" VARCHAR(100) NOT NULL DEFAULT '', ""DeviceType"" VARCHAR(50) NOT NULL DEFAULT '',
+            ""IPAddress"" VARCHAR(50) NOT NULL DEFAULT '', ""UserAgent"" TEXT NOT NULL DEFAULT '',
+            ""CountryCode"" VARCHAR(10) NOT NULL DEFAULT '',
+            ""IsFraudSuspected"" BOOLEAN NOT NULL DEFAULT FALSE, ""FraudReason"" TEXT NOT NULL DEFAULT '',
+            ""ClickedAt"" TIMESTAMPTZ NULL, ""RegisteredAt"" TIMESTAMPTZ NULL,
+            ""VerifiedAt"" TIMESTAMPTZ NULL, ""ConvertedAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_Referrals_AffiliateId"" ON ""Referrals""(""AffiliateId"");
+        CREATE INDEX IF NOT EXISTS ""IX_Referrals_ReferralCode"" ON ""Referrals""(""ReferralCode"");
+        CREATE INDEX IF NOT EXISTS ""IX_Referrals_Status"" ON ""Referrals""(""Status"");
+        CREATE INDEX IF NOT EXISTS ""IX_Referrals_ReferredUserId"" ON ""Referrals""(""ReferredUserId"");
+        CREATE INDEX IF NOT EXISTS ""IX_Referrals_IsFraudSuspected"" ON ""Referrals""(""IsFraudSuspected"");
+
+        CREATE TABLE IF NOT EXISTS ""AffiliateCampaigns"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""AffiliateId"" UUID NOT NULL REFERENCES ""Affiliates""(""Id"") ON DELETE CASCADE,
+            ""Name"" VARCHAR(300) NOT NULL, ""Description"" TEXT NOT NULL DEFAULT '',
+            ""ReferralLink"" VARCHAR(1000) NOT NULL DEFAULT '', ""TargetAudience"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""MarketingChannel"" VARCHAR(200) NOT NULL DEFAULT '', ""Notes"" TEXT NOT NULL DEFAULT '',
+            ""Clicks"" INT NOT NULL DEFAULT 0, ""Signups"" INT NOT NULL DEFAULT 0,
+            ""Conversions"" INT NOT NULL DEFAULT 0, ""Revenue"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""Commission"" DECIMAL(18,2) NOT NULL DEFAULT 0, ""ROI"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'active',
+            ""StartDate"" TIMESTAMPTZ NULL, ""EndDate"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_AffiliateCampaigns_AffiliateId"" ON ""AffiliateCampaigns""(""AffiliateId"");
+        CREATE INDEX IF NOT EXISTS ""IX_AffiliateCampaigns_Status"" ON ""AffiliateCampaigns""(""Status"");
+
+        CREATE TABLE IF NOT EXISTS ""Payouts"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""AffiliateId"" UUID NOT NULL REFERENCES ""Affiliates""(""Id"") ON DELETE CASCADE,
+            ""Amount"" DECIMAL(18,2) NOT NULL DEFAULT 0, ""Fee"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""Method"" VARCHAR(100) NOT NULL DEFAULT 'bank_transfer',
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'pending',
+            ""TransactionReference"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""BankReference"" VARCHAR(500) NOT NULL DEFAULT '', ""Notes"" TEXT NOT NULL DEFAULT '',
+            ""ProcessedById"" UUID NULL,
+            ""RequestedAt"" TIMESTAMPTZ NULL, ""ProcessedAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_Payouts_AffiliateId"" ON ""Payouts""(""AffiliateId"");
+        CREATE INDEX IF NOT EXISTS ""IX_Payouts_Status"" ON ""Payouts""(""Status"");
+
+        CREATE TABLE IF NOT EXISTS ""BonusAwards"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""AffiliateId"" UUID NOT NULL REFERENCES ""Affiliates""(""Id"") ON DELETE CASCADE,
+            ""Type"" VARCHAR(100) NOT NULL, ""Name"" VARCHAR(300) NOT NULL,
+            ""Description"" TEXT NOT NULL DEFAULT '', ""RewardAmount"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""Requirements"" TEXT NOT NULL DEFAULT '', ""IsAwarded"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""AwardedAt"" TIMESTAMPTZ NULL, ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_BonusAwards_AffiliateId"" ON ""BonusAwards""(""AffiliateId"");
+
+        CREATE TABLE IF NOT EXISTS ""LeaderboardEntries"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""AffiliateId"" UUID NOT NULL REFERENCES ""Affiliates""(""Id"") ON DELETE CASCADE,
+            ""Period"" VARCHAR(50) NOT NULL DEFAULT 'all-time', ""Rank"" INT NOT NULL DEFAULT 0,
+            ""Referrals"" INT NOT NULL DEFAULT 0, ""Earnings"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""Revenue"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""PeriodStart"" TIMESTAMPTZ NULL, ""PeriodEnd"" TIMESTAMPTZ NULL,
+            ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_LeaderboardEntries_PeriodRank"" ON ""LeaderboardEntries""(""Period"", ""Rank"");
+
+        CREATE TABLE IF NOT EXISTS ""MarketingAssets"" (
+            ""Id"" UUID PRIMARY KEY, ""Title"" VARCHAR(300) NOT NULL,
+            ""Description"" TEXT NOT NULL DEFAULT '', ""Category"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'image',
+            ""FileUrl"" VARCHAR(2000) NOT NULL DEFAULT '', ""PreviewUrl"" VARCHAR(2000) NOT NULL DEFAULT '',
+            ""DownloadUrl"" VARCHAR(2000) NOT NULL DEFAULT '',
+            ""FileSize"" BIGINT NOT NULL DEFAULT 0, ""MimeType"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE, ""SortOrder"" INT NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+
+        CREATE TABLE IF NOT EXISTS ""AffiliateNotifications"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""AffiliateId"" UUID NOT NULL REFERENCES ""Affiliates""(""Id"") ON DELETE CASCADE,
+            ""Type"" VARCHAR(100) NOT NULL DEFAULT '', ""Title"" VARCHAR(300) NOT NULL,
+            ""Message"" TEXT NOT NULL DEFAULT '', ""IsRead"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""ReadAt"" TIMESTAMPTZ NULL, ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_AffiliateNotifications_AffiliateId"" ON ""AffiliateNotifications""(""AffiliateId"");
+        CREATE INDEX IF NOT EXISTS ""IX_AffiliateNotifications_IsRead"" ON ""AffiliateNotifications""(""IsRead"");
+
+        CREATE TABLE IF NOT EXISTS ""FraudFlags"" (
+            ""Id"" UUID PRIMARY KEY, ""AffiliateId"" UUID NOT NULL,
+            ""ReferralId"" UUID NULL, ""Reason"" VARCHAR(500) NOT NULL,
+            ""Evidence"" TEXT NOT NULL DEFAULT '', ""Status"" VARCHAR(50) NOT NULL DEFAULT 'open',
+            ""ResolvedById"" UUID NULL, ""ResolvedAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_FraudFlags_AffiliateId"" ON ""FraudFlags""(""AffiliateId"");
+        CREATE INDEX IF NOT EXISTS ""IX_FraudFlags_Status"" ON ""FraudFlags""(""Status"");
+
+        CREATE TABLE IF NOT EXISTS ""Commissions"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""AffiliateId"" UUID NOT NULL REFERENCES ""Affiliates""(""Id"") ON DELETE CASCADE,
+            ""ReferralId"" UUID NULL, ""CommissionRuleId"" UUID NULL,
+            ""Amount"" DECIMAL(18,2) NOT NULL DEFAULT 0, ""Type"" VARCHAR(50) NOT NULL DEFAULT 'flat',
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'pending',
+            ""Description"" TEXT NOT NULL DEFAULT '',
+            ""EarnedAt"" TIMESTAMPTZ NULL, ""PaidAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_Commissions_AffiliateId"" ON ""Commissions""(""AffiliateId"");
+        CREATE INDEX IF NOT EXISTS ""IX_Commissions_Status"" ON ""Commissions""(""Status"");
     ");
 
     var adminEmail = builder.Configuration["AdminEmail"]

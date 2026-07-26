@@ -62,6 +62,17 @@ public class AppDbContext : DbContext
     public DbSet<ContentVersion> ContentVersions => Set<ContentVersion>();
     public DbSet<ContentRevision> ContentRevisions => Set<ContentRevision>();
     public DbSet<Campaign> Campaigns => Set<Campaign>();
+    public DbSet<Affiliate> Affiliates => Set<Affiliate>();
+    public DbSet<CommissionRule> CommissionRules => Set<CommissionRule>();
+    public DbSet<Referral> Referrals => Set<Referral>();
+    public DbSet<AffiliateCampaign> AffiliateCampaigns => Set<AffiliateCampaign>();
+    public DbSet<Payout> Payouts => Set<Payout>();
+    public DbSet<BonusAward> BonusAwards => Set<BonusAward>();
+    public DbSet<LeaderboardEntry> LeaderboardEntries => Set<LeaderboardEntry>();
+    public DbSet<MarketingAsset> MarketingAssets => Set<MarketingAsset>();
+    public DbSet<AffiliateNotification> AffiliateNotifications => Set<AffiliateNotification>();
+    public DbSet<FraudFlag> FraudFlags => Set<FraudFlag>();
+    public DbSet<Commission> Commissions => Set<Commission>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -345,5 +356,59 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<FormSubmission>(e => { e.HasOne(x => x.Form).WithMany().HasForeignKey(x => x.FormId).OnDelete(DeleteBehavior.Cascade); e.HasIndex(x => x.FormId); });
         modelBuilder.Entity<ContentVersion>(e => { e.HasIndex(x => new { x.EntityType, x.EntityId }); });
         modelBuilder.Entity<ContentRevision>(e => { e.HasIndex(x => new { x.EntityType, x.EntityId }); });
+
+        modelBuilder.Entity<Affiliate>(e =>
+        {
+            e.HasIndex(x => x.UserId).IsUnique();
+            e.HasIndex(x => x.ReferralCode).IsUnique();
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.Tier);
+        });
+        modelBuilder.Entity<CommissionRule>(e => { e.HasIndex(x => x.IsActive); });
+        modelBuilder.Entity<Referral>(e =>
+        {
+            e.HasOne(x => x.Affiliate).WithMany(x => x.Referrals).HasForeignKey(x => x.AffiliateId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Campaign).WithMany().HasForeignKey(x => x.CampaignId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => x.AffiliateId);
+            e.HasIndex(x => x.ReferralCode);
+            e.HasIndex(x => x.Status);
+            e.HasIndex(x => x.ReferredUserId);
+            e.HasIndex(x => x.IsFraudSuspected);
+        });
+        modelBuilder.Entity<AffiliateCampaign>(e =>
+        {
+            e.HasOne(x => x.Affiliate).WithMany(x => x.Campaigns).HasForeignKey(x => x.AffiliateId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.AffiliateId);
+            e.HasIndex(x => x.Status);
+        });
+        modelBuilder.Entity<Payout>(e =>
+        {
+            e.HasOne(x => x.Affiliate).WithMany(x => x.Payouts).HasForeignKey(x => x.AffiliateId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.AffiliateId);
+            e.HasIndex(x => x.Status);
+        });
+        modelBuilder.Entity<BonusAward>(e =>
+        {
+            e.HasOne(x => x.Affiliate).WithMany(x => x.BonusAwards).HasForeignKey(x => x.AffiliateId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.AffiliateId);
+        });
+        modelBuilder.Entity<LeaderboardEntry>(e =>
+        {
+            e.HasOne(x => x.Affiliate).WithMany().HasForeignKey(x => x.AffiliateId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => new { x.Period, x.Rank });
+        });
+        modelBuilder.Entity<AffiliateNotification>(e =>
+        {
+            e.HasOne(x => x.Affiliate).WithMany(x => x.Notifications).HasForeignKey(x => x.AffiliateId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.AffiliateId);
+            e.HasIndex(x => x.IsRead);
+        });
+        modelBuilder.Entity<FraudFlag>(e => { e.HasIndex(x => x.AffiliateId); e.HasIndex(x => x.Status); });
+        modelBuilder.Entity<Commission>(e =>
+        {
+            e.HasOne(x => x.Affiliate).WithMany(x => x.Commissions).HasForeignKey(x => x.AffiliateId).OnDelete(DeleteBehavior.Cascade);
+            e.HasIndex(x => x.AffiliateId);
+            e.HasIndex(x => x.Status);
+        });
     }
 }
