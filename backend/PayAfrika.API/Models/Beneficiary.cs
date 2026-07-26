@@ -29,5 +29,5 @@ public class Beneficiary
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [JsonIgnore]
-    public User User { get; set; } = null!;
+    public User? User { get; set; }
 }
