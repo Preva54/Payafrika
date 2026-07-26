@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace PayAfrika.API.Models;
 
@@ -18,18 +19,19 @@ public class ScheduledPayment
     public string Currency { get; set; } = "ZAR";
 
     [Required, MaxLength(20)]
-    public string Frequency { get; set; } = "monthly"; // daily, weekly, monthly, quarterly, yearly
+    public string Frequency { get; set; } = "monthly";
 
     public DateTime NextDate { get; set; }
     public DateTime? EndDate { get; set; }
 
     [MaxLength(20)]
-    public string Status { get; set; } = "active"; // active, paused, cancelled
+    public string Status { get; set; } = "active";
 
     [MaxLength(500)]
     public string? Description { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-    public User User { get; set; } = null!;
+    [JsonIgnore]
+    public User? User { get; set; }
 }
