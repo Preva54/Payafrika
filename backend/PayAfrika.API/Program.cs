@@ -906,6 +906,28 @@ using (var scope = app.Services.CreateScope())
             ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             ""AcceptedAt"" TIMESTAMPTZ NULL
         );
+
+        CREATE TABLE IF NOT EXISTS ""WalletBalances"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id""),
+            ""Currency"" VARCHAR(3) NOT NULL DEFAULT 'ZAR',
+            ""Balance"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""ReservedBalance"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_WalletBalances_UserId_Currency"" ON ""WalletBalances""(""UserId"", ""Currency"");
+
+        CREATE TABLE IF NOT EXISTS ""LinkedBanks"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id""),
+            ""BankName"" VARCHAR(200) NOT NULL,
+            ""AccountName"" VARCHAR(200) NOT NULL,
+            ""AccountNumber"" VARCHAR(50) NOT NULL,
+            ""IsVerified"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""IsPrimary"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
     ");
 
     db.Database.ExecuteSqlRaw(@"
