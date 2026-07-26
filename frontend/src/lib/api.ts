@@ -34,12 +34,22 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
   return response.json()
 }
 
+async function requestBlob(endpoint: string): Promise<Blob> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+  })
+  if (!response.ok) throw new Error(`Export failed: ${response.status}`)
+  return response.blob()
+}
+
 export const api = {
   get: <T>(endpoint: string) => request<T>(endpoint),
   post: <T>(endpoint: string, body: unknown) => request<T>(endpoint, { method: "POST", body }),
   put: <T>(endpoint: string, body: unknown) => request<T>(endpoint, { method: "PUT", body }),
   patch: <T>(endpoint: string, body: unknown) => request<T>(endpoint, { method: "PATCH", body }),
   delete: <T>(endpoint: string) => request<T>(endpoint, { method: "DELETE" }),
+  getBlob: (endpoint: string) => requestBlob(endpoint),
 }
 
 export interface AuthResponse {

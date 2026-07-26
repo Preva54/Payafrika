@@ -79,6 +79,8 @@ public class AppDbContext : DbContext
     public DbSet<RolePermission> RolePermissions => Set<RolePermission>();
     public DbSet<UserRoleAssignment> UserRoleAssignments => Set<UserRoleAssignment>();
     public DbSet<Invitation> Invitations => Set<Invitation>();
+    public DbSet<ScheduledReport> ScheduledReports => Set<ScheduledReport>();
+    public DbSet<ReportExportJob> ReportExportJobs => Set<ReportExportJob>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

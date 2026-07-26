@@ -44,6 +44,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ILoanService, LoanService>();
 builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<IAiInsightService, AiInsightService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.Configure<FlutterwaveSettings>(builder.Configuration.GetSection("Payment:Flutterwave"));
@@ -903,6 +905,42 @@ using (var scope = app.Services.CreateScope())
             ""ExpiresAt"" TIMESTAMPTZ NULL,
             ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             ""AcceptedAt"" TIMESTAMPTZ NULL
+        );
+    ");
+
+    db.Database.ExecuteSqlRaw($@"
+        CREATE TABLE IF NOT EXISTS ""ScheduledReports"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""CreatedById"" UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',
+            ""Name"" VARCHAR(200) NOT NULL,
+            ""Description"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""ReportType"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Frequency"" VARCHAR(50) NOT NULL DEFAULT 'weekly',
+            ""CronExpression"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Filters"" TEXT NOT NULL DEFAULT '{{}}',
+            ""Format"" VARCHAR(50) NOT NULL DEFAULT 'pdf',
+            ""RecipientEmails"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""IncludeCharts"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""IncludeSummary"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'active',
+            ""LastRunAt"" TIMESTAMPTZ NULL,
+            ""NextRunAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE TABLE IF NOT EXISTS ""ReportExportJobs"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""ReportType"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Format"" VARCHAR(50) NOT NULL DEFAULT 'xlsx',
+            ""Filters"" TEXT NOT NULL DEFAULT '{{}}',
+            ""FileUrl"" TEXT NOT NULL DEFAULT '',
+            ""FileSize"" BIGINT NOT NULL DEFAULT 0,
+            ""Status"" VARCHAR(50) NOT NULL DEFAULT 'pending',
+            ""ErrorMessage"" TEXT NOT NULL DEFAULT '',
+            ""CompletedAt"" TIMESTAMPTZ NULL,
+            ""ExpiresAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
     ");
 
