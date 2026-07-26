@@ -909,6 +909,32 @@ using (var scope = app.Services.CreateScope())
     ");
 
     db.Database.ExecuteSqlRaw($@"
+        CREATE TABLE IF NOT EXISTS ""PlatformSettings"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Category"" VARCHAR(100) NOT NULL,
+            ""Key"" VARCHAR(200) NOT NULL,
+            ""Value"" TEXT NOT NULL DEFAULT '',
+            ""Description"" VARCHAR(500) NULL,
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'string',
+            ""IsEncrypted"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""UpdatedById"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PlatformSettings_Category_Key"" ON ""PlatformSettings""(""Category"", ""Key"");
+        CREATE TABLE IF NOT EXISTS ""SettingChangeLogs"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Category"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""Key"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""OldValue"" TEXT NOT NULL DEFAULT '',
+            ""NewValue"" TEXT NOT NULL DEFAULT '',
+            ""ChangedById"" UUID NULL,
+            ""ChangedByName"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""ChangedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_SettingChangeLogs_Category_ChangedAt"" ON ""SettingChangeLogs""(""Category"", ""ChangedAt"");
+
         CREATE TABLE IF NOT EXISTS ""ScheduledReports"" (
             ""Id"" UUID PRIMARY KEY,
             ""CreatedById"" UUID NOT NULL DEFAULT '00000000-0000-0000-0000-000000000000',

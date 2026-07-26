@@ -1,373 +1,427 @@
 "use client"
 
-import { useState } from "react"
+import React, { useEffect, useState, useCallback, useMemo } from "react"
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { Save, Globe, Shield, Mail, Bell, Sliders, RefreshCw } from "lucide-react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Separator } from "@/components/ui/separator"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import {
+  Save, Globe, Building2, Palette, Key, Shield, CreditCard, Wallet, Store, Users,
+  ShieldCheck, AlertTriangle, Percent, ArrowLeftRight, Bell, Mail, MessageSquare,
+  Code2, Puzzle, FileText, UsersRound, Search, MapPin, Wrench, HardDrive, Zap,
+  Flag, Terminal, RefreshCw, Download, Upload, RotateCcw, History, Check, X,
+  Sun, Moon, ChevronRight, Search as SearchIcon,
+} from "lucide-react"
+import { adminSettingsApi, type PlatformSettingsCategory, type PlatformSettingsField, type SettingChangeLogEntry } from "@/lib/admin-settings-api"
 
-const sections = [
-  { id: "general", label: "General", icon: Globe },
-  { id: "security", label: "Security", icon: Shield },
-  { id: "email", label: "Email", icon: Mail },
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "features", label: "Features", icon: Sliders },
-]
+const iconMap: Record<string, React.ElementType> = {
+  Globe, Building2, Palette, Key, Shield, CreditCard, Wallet, Store, Users,
+  ShieldCheck, AlertTriangle, Percent, ArrowLeftRight, Bell, Mail, MessageSquare,
+  Code2, Puzzle, FileText, UsersRound, MapPin, Wrench, HardDrive, Zap, Flag, Terminal,
+}
 
-export default function AdminSettingsPage() {
-  const [activeSection, setActiveSection] = useState("general")
-  const [saved, setSaved] = useState(false)
+const categoryIcons: Record<string, React.ElementType> = {
+  general: Globe, company: Building2, branding: Palette, authentication: Key,
+  security: Shield, payment_gateway: CreditCard, wallet: Wallet, merchant: Store,
+  customer: Users, kyc_compliance: ShieldCheck, fraud_risk: AlertTriangle,
+  fees_pricing: Percent, exchange_rates: ArrowLeftRight, notifications: Bell,
+  email: Mail, sms: MessageSquare, api_webhooks: Code2, integrations: Puzzle,
+  cms: FileText, affiliate: UsersRound, audit: Search, regional: MapPin,
+  maintenance: Wrench, backup: HardDrive, performance: Zap, feature_flags: Flag,
+  developer: Terminal,
+}
 
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+function SectionSkeleton() {
+  return (
+    <div className="space-y-4">
+      {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12 rounded-lg" />)}
+    </div>
+  )
+}
+
+function SettingsField({ field, value, onChange }: { field: PlatformSettingsField; value: string; onChange: (key: string, value: string, type: string) => void }) {
+  const displayValue = field.isEncrypted && !value ? "••••••••" : value
+
+  if (field.type === "switch") {
+    return (
+      <div className="flex items-center justify-between py-3">
+        <div className="space-y-0.5">
+          <p className="text-sm font-medium">{field.label}</p>
+          {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
+        </div>
+        <Switch checked={value === "true"} onCheckedChange={(c) => onChange(field.key, c ? "true" : "false", field.type)} />
+      </div>
+    )
   }
 
-  const sectionContent = () => {
-    switch (activeSection) {
-      case "general":
-        return (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Platform Information</CardTitle>
-                <CardDescription>Basic settings for your PayAfrika instance.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="appName">Platform Name</Label>
-                    <Input id="appName" defaultValue="PayAfrika" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="currency">Default Currency</Label>
-                    <Select defaultValue="zar">
-                      <SelectTrigger id="currency">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="zar">ZAR - South African Rand</SelectItem>
-                        <SelectItem value="ngn">NGN - Nigerian Naira</SelectItem>
-                        <SelectItem value="kes">KES - Kenyan Shilling</SelectItem>
-                        <SelectItem value="ghs">GHS - Ghanaian Cedi</SelectItem>
-                        <SelectItem value="usd">USD - US Dollar</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="timezone">Timezone</Label>
-                    <Select defaultValue="cat">
-                      <SelectTrigger id="timezone">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="cat">CAT (UTC+2)</SelectItem>
-                        <SelectItem value="wat">WAT (UTC+1)</SelectItem>
-                        <SelectItem value="eat">EAT (UTC+3)</SelectItem>
-                        <SelectItem value="gmt">GMT (UTC+0)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="language">Default Language</Label>
-                    <Select defaultValue="en">
-                      <SelectTrigger id="language">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="en">English</SelectItem>
-                        <SelectItem value="fr">French</SelectItem>
-                        <SelectItem value="pt">Portuguese</SelectItem>
-                        <SelectItem value="ar">Arabic</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="supportEmail">Support Email</Label>
-                  <Input id="supportEmail" type="email" defaultValue="support@payafrika.com" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
+  if (field.type === "select" && field.options) {
+    return (
+      <div className="space-y-1.5 py-2">
+        <Label className="text-sm">{field.label}</Label>
+        {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
+        <Select value={value || field.defaultValue || ""} onValueChange={(v) => onChange(field.key, v, field.type)}>
+          <SelectTrigger className="w-full max-w-sm"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            {field.options.map((opt) => <SelectItem key={opt} value={opt}>{opt}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+    )
+  }
 
-      case "security":
-        return (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Security Settings</CardTitle>
-                <CardDescription>Configure authentication and access policies.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Two-Factor Authentication</p>
-                    <p className="text-sm text-muted-foreground">Require 2FA for all admin accounts</p>
-                  </div>
-                  <Switch defaultChecked />
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Session Timeout</p>
-                    <p className="text-sm text-muted-foreground">Auto-logout after inactivity</p>
-                  </div>
-                  <Select defaultValue="30">
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="15">15 minutes</SelectItem>
-                      <SelectItem value="30">30 minutes</SelectItem>
-                      <SelectItem value="60">1 hour</SelectItem>
-                      <SelectItem value="240">4 hours</SelectItem>
-                      <SelectItem value="480">8 hours</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Password Policy</p>
-                    <p className="text-sm text-muted-foreground">Minimum password length</p>
-                  </div>
-                  <Select defaultValue="8">
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="6">6 characters</SelectItem>
-                      <SelectItem value="8">8 characters</SelectItem>
-                      <SelectItem value="12">12 characters</SelectItem>
-                      <SelectItem value="16">16 characters</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Rate Limiting</p>
-                    <p className="text-sm text-muted-foreground">Max login attempts before lockout</p>
-                  </div>
-                  <Select defaultValue="5">
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="3">3 attempts</SelectItem>
-                      <SelectItem value="5">5 attempts</SelectItem>
-                      <SelectItem value="10">10 attempts</SelectItem>
-                      <SelectItem value="999">Unlimited</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
+  if (field.type === "textarea") {
+    return (
+      <div className="space-y-1.5 py-2">
+        <Label className="text-sm">{field.label}</Label>
+        {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
+        <Textarea value={displayValue} onChange={(e) => onChange(field.key, e.target.value, field.type)} className="min-h-[80px]" placeholder={field.placeholder} />
+      </div>
+    )
+  }
 
-      case "email":
-        return (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Email Configuration</CardTitle>
-                <CardDescription>Configure SMTP settings for transactional emails.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="smtpHost">SMTP Host</Label>
-                    <Input id="smtpHost" defaultValue="smtp.sendgrid.net" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="smtpPort">SMTP Port</Label>
-                    <Input id="smtpPort" defaultValue="587" />
-                  </div>
-                </div>
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="smtpUser">SMTP Username</Label>
-                    <Input id="smtpUser" defaultValue="apikey" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="smtpPass">SMTP Password</Label>
-                    <Input id="smtpPass" type="password" defaultValue="••••••••" />
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fromEmail">From Email</Label>
-                  <Input id="fromEmail" type="email" defaultValue="noreply@payafrika.com" />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
-
-      case "notifications":
-        return (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Notification Channels</CardTitle>
-                <CardDescription>Control how admins receive alerts.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {[
-                  { label: "Email Notifications", desc: "Receive alerts via email", enabled: true },
-                  { label: "SMS Alerts", desc: "Critical alerts via SMS", enabled: true },
-                  { label: "Push Notifications", desc: "Browser push notifications", enabled: false },
-                  { label: "Slack Integration", desc: "Send alerts to Slack webhook", enabled: false },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{item.label}</p>
-                      <p className="text-sm text-muted-foreground">{item.desc}</p>
-                    </div>
-                    <Switch defaultChecked={item.enabled} />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Alert Thresholds</CardTitle>
-                <CardDescription>Set thresholds for automated alerts.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="fraudThreshold">Fraud Alert Threshold</Label>
-                    <Input id="fraudThreshold" defaultValue="R 500,000" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="loginThreshold">Failed Login Alert</Label>
-                    <Input id="loginThreshold" defaultValue="5 attempts" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
-
-      case "features":
-        return (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Feature Toggles</CardTitle>
-                <CardDescription>Enable or disable platform features.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-5">
-                {[
-                  { label: "Loans", desc: "Personal & business loan services", enabled: true },
-                  { label: "Cross-Border Payments", desc: "International money transfers", enabled: true },
-                  { label: "Currency Exchange", desc: "Digital currency conversion", enabled: true },
-                  { label: "Import/Export Services", desc: "Trade facilitation", enabled: true },
-                  { label: "Business Banking", desc: "Business account features", enabled: true },
-                  { label: "KYC Verification", desc: "Identity verification flow", enabled: true },
-                  { label: "Affiliate Program", desc: "Referral & affiliate system", enabled: false },
-                  { label: "Blog", desc: "Content management system", enabled: true },
-                ].map((item) => (
-                  <div key={item.label} className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{item.label}</p>
-                      <p className="text-sm text-muted-foreground">{item.desc}</p>
-                    </div>
-                    <Switch defaultChecked={item.enabled} />
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Maintenance Mode</CardTitle>
-                <CardDescription>Temporarily disable the platform for maintenance.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="font-medium">Maintenance Mode</p>
-                    <p className="text-sm text-muted-foreground">Show maintenance page to all users</p>
-                  </div>
-                  <Switch />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )
-
-      default:
-        return null
-    }
+  if (field.type === "color") {
+    return (
+      <div className="flex items-center gap-3 py-2">
+        <div className="space-y-0.5 flex-1">
+          <Label className="text-sm">{field.label}</Label>
+          {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
+        </div>
+        <div className="flex items-center gap-2">
+          <input type="color" value={value || field.defaultValue || "#0057FF"} onChange={(e) => onChange(field.key, e.target.value, field.type)} className="w-9 h-9 rounded-lg border cursor-pointer" />
+          <span className="text-xs font-mono text-muted-foreground w-20">{value || field.defaultValue || "#0057FF"}</span>
+        </div>
+      </div>
+    )
   }
 
   return (
+    <div className="space-y-1.5 py-2">
+      <Label className="text-sm">{field.label}</Label>
+      {field.description && <p className="text-xs text-muted-foreground">{field.description}</p>}
+      <Input
+        type={field.type === "password" ? "password" : field.type || "text"}
+        value={displayValue}
+        onChange={(e) => onChange(field.key, e.target.value, field.type)}
+        placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}...`}
+        className="max-w-sm"
+      />
+    </div>
+  )
+}
+
+export default function AdminSettingsPage() {
+  const [categories, setCategories] = useState<PlatformSettingsCategory[]>([])
+  const [activeCategory, setActiveCategory] = useState("general")
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showChangelog, setShowChangelog] = useState(false)
+  const [changelog, setChangelog] = useState<SettingChangeLogEntry[]>([])
+  const [localValues, setLocalValues] = useState<Record<string, Record<string, string>>>({})
+  const [dirty, setDirty] = useState(false)
+  const [dashboard, setDashboard] = useState<AdminSettingsDashboard | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    Promise.all([
+      adminSettingsApi.getAll(),
+      adminSettingsApi.dashboard(),
+    ]).then(([cats, dash]) => {
+      setCategories(cats)
+      setDashboard(dash)
+      const vals: Record<string, Record<string, string>> = {}
+      for (const cat of cats) {
+        vals[cat.id] = {}
+        for (const f of cat.fields) {
+          vals[cat.id][f.key] = f.value
+        }
+      }
+      setLocalValues(vals)
+    }).catch(() => {}).finally(() => setLoading(false))
+  }, [])
+
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return categories
+    const q = searchQuery.toLowerCase()
+    return categories.filter((cat) => {
+      if (cat.label.toLowerCase().includes(q) || cat.description.toLowerCase().includes(q)) return true
+      return cat.fields.some((f) => f.label.toLowerCase().includes(q) || f.key.toLowerCase().includes(q))
+    })
+  }, [categories, searchQuery])
+
+  const activeData = useMemo(() => {
+    return categories.find((c) => c.id === activeCategory)
+  }, [categories, activeCategory])
+
+  const handleValueChange = useCallback((fieldKey: string, value: string, _type: string) => {
+    setLocalValues((prev) => ({
+      ...prev,
+      [activeCategory]: {
+        ...(prev[activeCategory] || {}),
+        [fieldKey]: value,
+      },
+    }))
+    setDirty(true)
+  }, [activeCategory])
+
+  const handleSave = useCallback(async () => {
+    if (!activeData) return
+    setSaving(true)
+    const fields = activeData.fields.map((f) => ({
+      key: f.key,
+      value: localValues[activeCategory]?.[f.key] ?? f.value,
+      type: f.type,
+    }))
+    try {
+      await adminSettingsApi.updateCategory(activeCategory, fields)
+      setSaved(true)
+      setDirty(false)
+      setTimeout(() => setSaved(false), 2000)
+    } catch { /* ignore */ }
+    setSaving(false)
+  }, [activeCategory, activeData, localValues])
+
+  const handleRestoreDefaults = useCallback(async () => {
+    try {
+      await adminSettingsApi.restoreDefaults(activeCategory)
+      const cats = await adminSettingsApi.getAll()
+      setCategories(cats)
+      const vals: Record<string, Record<string, string>> = {}
+      for (const cat of cats) {
+        vals[cat.id] = {}
+        for (const f of cat.fields) vals[cat.id][f.key] = f.value
+      }
+      setLocalValues(vals)
+      setDirty(false)
+    } catch { /* ignore */ }
+  }, [activeCategory])
+
+  const handleExport = useCallback(async () => {
+    try {
+      const blob = await adminSettingsApi.exportConfig()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url; a.download = `payafrika-config-${new Date().toISOString().split("T")[0]}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch { /* ignore */ }
+  }, [])
+
+  const handleImport = useCallback(async () => {
+    const input = document.createElement("input")
+    input.type = "file"; input.accept = ".json"
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0]
+      if (!file) return
+      const text = await file.text()
+      try {
+        await adminSettingsApi.importConfig(text)
+        const cats = await adminSettingsApi.getAll()
+        setCategories(cats)
+        const vals: Record<string, Record<string, string>> = {}
+        for (const cat of cats) {
+          vals[cat.id] = {}
+          for (const f of cat.fields) vals[cat.id][f.key] = f.value
+        }
+        setLocalValues(vals)
+      } catch { /* ignore */ }
+    }
+    input.click()
+  }, [])
+
+  const loadChangelog = useCallback(async () => {
+    try {
+      const res = await adminSettingsApi.changelog(activeCategory)
+      setChangelog(res.logs)
+    } catch { /* ignore */ }
+  }, [activeCategory])
+
+  useEffect(() => {
+    if (showChangelog) loadChangelog()
+  }, [showChangelog, loadChangelog])
+
+  return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold mb-1">Settings</h1>
-          <p className="text-muted-foreground">Manage platform configuration and preferences.</p>
+          <h1 className="text-2xl font-bold">Settings</h1>
+          <p className="text-sm text-muted-foreground">System configuration and platform preferences</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setActiveSection("general")}>
-            <RefreshCw className="mr-2 h-4 w-4" />
-            Reset
-          </Button>
-          <Button variant="gradient" onClick={handleSave}>
-            <Save className="mr-2 h-4 w-4" />
-            {saved ? "Saved!" : "Save Changes"}
-          </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          {dirty && (
+            <Badge variant="secondary" className="gap-1 text-xs">
+              <X className="w-3 h-3" /> Unsaved changes
+            </Badge>
+          )}
+          {saved && (
+            <motion.div initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}>
+              <Badge className="bg-emerald-500/20 text-emerald-500 border-emerald-500/30 gap-1 text-xs">
+                <Check className="w-3 h-3" /> Saved
+              </Badge>
+            </motion.div>
+          )}
+          {dashboard && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Badge variant="outline" className="text-[10px]">v{dashboard.currentVersion}</Badge>
+              <Badge variant={dashboard.maintenanceMode ? "destructive" : "secondary"} className="text-[10px]">
+                {dashboard.maintenanceMode ? "Maintenance" : "Live"}
+              </Badge>
+            </div>
+          )}
         </div>
       </div>
 
-      {saved && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0 }}
-        >
-          <Badge variant="success" className="px-4 py-2 text-sm">
-            Settings saved successfully
-          </Badge>
-        </motion.div>
-      )}
+      <div className="flex gap-0 rounded-xl border bg-card overflow-hidden min-h-[600px]">
+        {/* Sidebar */}
+        <div className="w-56 shrink-0 border-r bg-muted/20 flex flex-col">
+          <div className="p-2 border-b">
+            <div className="relative">
+              <SearchIcon className="absolute left-2.5 top-2.5 w-3.5 h-3.5 text-muted-foreground" />
+              <Input
+                placeholder="Search settings..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 h-8 text-xs"
+              />
+            </div>
+          </div>
+          <ScrollArea className="flex-1">
+            <div className="p-2 space-y-0.5">
+              {loading
+                ? Array.from({ length: 12 }).map((_, i) => <Skeleton key={i} className="h-8 rounded-lg" />)
+                : filteredCategories.map((cat) => {
+                    const Icon = categoryIcons[cat.id] || Globe
+                    return (
+                      <button
+                        key={cat.id}
+                        onClick={() => { setActiveCategory(cat.id); setShowChangelog(false) }}
+                        className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors text-left ${
+                          activeCategory === cat.id && !showChangelog
+                            ? "bg-primary/10 text-primary"
+                            : "text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        <Icon className="w-3.5 h-3.5 shrink-0" />
+                        <span className="truncate">{cat.label}</span>
+                      </button>
+                    )
+                  })}
+              <Separator className="my-2" />
+              <button
+                onClick={() => { setShowChangelog(true); loadChangelog() }}
+                className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  showChangelog ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                Change History
+              </button>
+            </div>
+          </ScrollArea>
+        </div>
 
-      <div className="flex gap-6">
-        <nav className="w-56 shrink-0 space-y-1">
-          {sections.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveSection(id)}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
-                activeSection === id
-                  ? "bg-primary/10 text-primary"
-                  : "text-muted-foreground hover:bg-secondary"
-              }`}
-            >
-              <Icon className="h-4 w-4" />
-              {label}
-            </button>
-          ))}
-        </nav>
-
+        {/* Content */}
         <div className="flex-1 min-w-0">
-          <motion.div
-            key={activeSection}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            {sectionContent()}
-          </motion.div>
+          {showChangelog ? (
+            <div className="p-6 space-y-3">
+              <div className="flex items-center justify-between">
+                <h3 className="text-sm font-semibold">Change History {activeCategory && `- ${activeData?.label || activeCategory}`}</h3>
+                <Button variant="ghost" size="sm" onClick={() => setShowChangelog(false)}><X className="w-4 h-4" /></Button>
+              </div>
+              {changelog.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-8 text-center">No changes recorded yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {changelog.map((log) => (
+                    <Card key={log.id}>
+                      <CardContent className="p-3 text-xs space-y-1">
+                        <div className="flex justify-between text-muted-foreground">
+                          <span className="font-medium text-foreground">{log.key}</span>
+                          <span>{new Date(log.changedAt).toLocaleString("en-ZA")}</span>
+                        </div>
+                        <div className="flex gap-3">
+                          <span className="text-red-400 line-through truncate">{log.oldValue || "(empty)"}</span>
+                          <ChevronRight className="w-3 h-3 shrink-0 text-muted-foreground" />
+                          <span className="text-emerald-400 truncate">{log.newValue || "(empty)"}</span>
+                        </div>
+                        <p className="text-muted-foreground">by {log.changedByName || "System"}</p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="p-6">
+              {loading ? (
+                <SectionSkeleton />
+              ) : activeData ? (
+                <motion.div key={activeCategory} initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-lg font-semibold flex items-center gap-2">
+                        {categoryIcons[activeData.id] && React.createElement(categoryIcons[activeData.id], { className: "w-5 h-5 text-primary" })}
+                        {activeData.label}
+                      </h2>
+                      <p className="text-sm text-muted-foreground">{activeData.description}</p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button variant="outline" size="sm" onClick={handleRestoreDefaults}>
+                        <RotateCcw className="w-3.5 h-3.5 mr-1" />Defaults
+                      </Button>
+                      <Button size="sm" onClick={handleSave} disabled={saving}>
+                        <Save className="w-3.5 h-3.5 mr-1" />{saving ? "Saving..." : "Save"}
+                      </Button>
+                    </div>
+                  </div>
+                  <Card>
+                    <CardContent className="p-5 divide-y divide-border/50">
+                      {activeData.fields.map((field) => (
+                        <SettingsField
+                          key={field.key}
+                          field={field}
+                          value={localValues[activeCategory]?.[field.key] ?? field.value}
+                          onChange={handleValueChange}
+                        />
+                      ))}
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              ) : (
+                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
+                  <Search className="w-12 h-12 mb-3 opacity-30" />
+                  <p>No settings found for &quot;{searchQuery}&quot;</p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Bottom toolbar */}
+      <div className="flex items-center justify-between p-3 rounded-xl border bg-card">
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-emerald-500" />
+            <span>{categories.length} setting categories</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleImport}>
+            <Upload className="w-3.5 h-3.5 mr-1" />Import
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExport}>
+            <Download className="w-3.5 h-3.5 mr-1" />Export
+          </Button>
         </div>
       </div>
     </div>

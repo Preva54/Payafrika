@@ -81,6 +81,8 @@ public class AppDbContext : DbContext
     public DbSet<Invitation> Invitations => Set<Invitation>();
     public DbSet<ScheduledReport> ScheduledReports => Set<ScheduledReport>();
     public DbSet<ReportExportJob> ReportExportJobs => Set<ReportExportJob>();
+    public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
+    public DbSet<SettingChangeLog> SettingChangeLogs => Set<SettingChangeLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -463,6 +465,16 @@ public class AppDbContext : DbContext
             e.HasIndex(x => x.UserId);
             e.HasIndex(x => x.RoleId);
             e.HasIndex(x => x.Status);
+        });
+
+        modelBuilder.Entity<PlatformSetting>(e =>
+        {
+            e.HasIndex(x => new { x.Category, x.Key }).IsUnique();
+            e.HasOne(x => x.UpdatedBy).WithMany().HasForeignKey(x => x.UpdatedById).OnDelete(DeleteBehavior.SetNull);
+        });
+        modelBuilder.Entity<SettingChangeLog>(e =>
+        {
+            e.HasIndex(x => new { x.Category, x.ChangedAt });
         });
     }
 }
