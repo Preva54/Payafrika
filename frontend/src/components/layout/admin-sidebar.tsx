@@ -8,6 +8,7 @@ import {
   LayoutDashboard, Users, HandCoins, CreditCard, Shield, 
   Ticket, FileText, ScrollText, UsersRound, KeyRound,
   BarChart3, Settings, LogOut, ChevronDown, ChevronRight,
+  RefreshCw, Globe, Activity, Link2, Landmark, ArrowUpRight,
 } from "lucide-react"
 import { useState } from "react"
 
@@ -31,6 +32,8 @@ const navSections: NavSection[] = [
       { label: "KYC Verification", href: "/admin/kyc", icon: Shield },
       { label: "Loans", href: "/admin/loans", icon: HandCoins },
       { label: "Payments", href: "/admin/payments", icon: CreditCard },
+      { label: "Deposits", href: "/admin/deposits", icon: Landmark },
+      { label: "Withdrawals", href: "/admin/withdrawals", icon: ArrowUpRight },
       { label: "Support Tickets", href: "/admin/tickets", icon: Ticket },
     ],
   },
@@ -46,6 +49,17 @@ const navSections: NavSection[] = [
     items: [
       { label: "Audit Logs", href: "/admin/audit-logs", icon: ScrollText },
       { label: "Roles & Permissions", href: "/admin/roles", icon: KeyRound },
+    ],
+  },
+  {
+    label: "Exchange",
+    items: [
+      { label: "Dashboard", href: "/admin/exchange", icon: RefreshCw },
+      { label: "Managed", href: "/admin/exchange/managed", icon: Activity },
+      { label: "Currencies", href: "/admin/exchange/currencies", icon: Globe },
+      { label: "Rates", href: "/admin/exchange/rates", icon: Activity },
+      { label: "Providers", href: "/admin/exchange/providers", icon: Link2 },
+      { label: "Pairs", href: "/admin/exchange/pairs", icon: Link2 },
     ],
   },
   {

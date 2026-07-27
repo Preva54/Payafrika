@@ -41,6 +41,8 @@ public class WalletController : ControllerBase
         var balances = await _db.WalletBalances.Where(w => w.UserId == userId).ToListAsync();
 
         var totalBalance = balances.Sum(b => b.Balance) + (await _db.Wallets.Where(w => w.UserId == userId).SumAsync(w => w.Balance));
+        var reservedBalance = balances.Sum(b => b.ReservedBalance);
+        var availableBalance = totalBalance - reservedBalance;
         var pendingTxns = transactions.Where(t => t.Status == "pending").Sum(t => t.Amount);
         var monthlyIncome = transactions.Where(t => t.CreatedAt >= monthStart && (t.Type == "deposit" || t.Type == "payment")).Sum(t => t.Amount);
         var monthlySpending = transactions.Where(t => t.CreatedAt >= monthStart && (t.Type == "withdrawal" || t.Type == "transfer" || t.Type == "exchange")).Sum(t => t.Amount);
@@ -48,11 +50,14 @@ public class WalletController : ControllerBase
         return Ok(new WalletOverviewResponse
         {
             TotalBalance = totalBalance,
-            AvailableBalance = totalBalance - pendingTxns,
-            PendingBalance = pendingTxns,
+            AvailableBalance = availableBalance,
+            PendingBalance = pendingTxns + reservedBalance,
             MonthlyCashFlow = monthlyIncome - monthlySpending,
             MonthlyIncome = monthlyIncome,
             MonthlySpending = monthlySpending,
+            SupportedCurrencies = balances.Count + (await _db.Wallets.Where(w => w.UserId == userId).CountAsync()),
+            PortfolioValue = totalBalance,
+            ReservedBalance = reservedBalance,
         });
     }
 
@@ -94,6 +99,9 @@ public class WalletController : ControllerBase
                 ZARValue = b.Balance * ExchangeRateService.GetZARRate(b.Currency),
                 ChangePercent = changePercent,
                 MiniGraph = dailyBalances,
+                AvailableBalance = b.Balance - b.ReservedBalance,
+                ReservedBalance = b.ReservedBalance,
+                Name = ExchangeRateService.GetName(b.Currency),
             };
         }).ToList();
 
@@ -114,6 +122,9 @@ public class WalletController : ControllerBase
                 Currency = "ZAR", Flag = "🇿🇦", Balance = zar?.Balance ?? 0,
                 ZARValue = zar?.Balance ?? 0, ChangePercent = 0.5m,
                 MiniGraph = zarDaily,
+                AvailableBalance = (zar?.Balance ?? 0) - 0,
+                ReservedBalance = 0,
+                Name = ExchangeRateService.GetName("ZAR"),
             });
         }
 
@@ -311,31 +322,51 @@ public class WalletController : ControllerBase
     {
         var userId = GetUserId();
         var banks = await _db.LinkedBanks.Where(lb => lb.UserId == userId).ToListAsync();
-        return Ok(banks.Select(b => new LinkedBankResponse
-        {
-            Id = b.Id, BankName = b.BankName, AccountName = b.AccountName,
-            AccountNumber = $"****{b.AccountNumber[^4..]}", IsVerified = b.IsVerified, IsPrimary = b.IsPrimary,
-        }).ToList());
+        return Ok(banks.Select(MapBank).ToList());
     }
 
     [HttpPost("linked-banks")]
     public async Task<ActionResult<LinkedBankResponse>> LinkBank([FromBody] LinkBankRequest request)
     {
         var userId = GetUserId();
+        var existing = await _db.LinkedBanks.CountAsync(lb => lb.UserId == userId);
         var bank = new LinkedBank
         {
-            UserId = userId, BankName = request.BankName,
-            AccountName = request.AccountName, AccountNumber = request.AccountNumber,
-            IsVerified = false, IsPrimary = false,
+            UserId = userId,
+            BankName = request.BankName,
+            AccountName = request.AccountName,
+            AccountNumber = request.AccountNumber,
+            BranchCode = request.BranchCode,
+            AccountType = request.AccountType,
+            Nickname = request.Nickname,
+            Country = request.Country,
+            Currency = request.Currency,
+            IsPrimary = existing == 0,
+            Status = "pending",
         };
         _db.LinkedBanks.Add(bank);
         await _db.SaveChangesAsync();
 
-        return Ok(new LinkedBankResponse
+        return Ok(MapBank(bank));
+    }
+
+    [HttpPut("linked-banks/{id}")]
+    public async Task<ActionResult<LinkedBankResponse>> UpdateBank(Guid id, [FromBody] UpdateBankRequest request)
+    {
+        var userId = GetUserId();
+        var bank = await _db.LinkedBanks.FirstOrDefaultAsync(lb => lb.Id == id && lb.UserId == userId);
+        if (bank == null) return NotFound(new { error = "Bank not found." });
+
+        if (request.Nickname != null) bank.Nickname = request.Nickname;
+        if (request.IsPrimary == true)
         {
-            Id = bank.Id, BankName = bank.BankName, AccountName = bank.AccountName,
-            AccountNumber = $"****{bank.AccountNumber[^4..]}", IsVerified = bank.IsVerified, IsPrimary = bank.IsPrimary,
-        });
+            var others = await _db.LinkedBanks.Where(lb => lb.UserId == userId && lb.Id != id).ToListAsync();
+            foreach (var o in others) o.IsPrimary = false;
+            bank.IsPrimary = true;
+        }
+        bank.UpdatedAt = DateTime.UtcNow;
+        await _db.SaveChangesAsync();
+        return Ok(MapBank(bank));
     }
 
     [HttpDelete("linked-banks/{id}")]
@@ -344,9 +375,52 @@ public class WalletController : ControllerBase
         var userId = GetUserId();
         var bank = await _db.LinkedBanks.FirstOrDefaultAsync(lb => lb.Id == id && lb.UserId == userId);
         if (bank == null) return NotFound(new { error = "Bank not found." });
+
+        var pending = await _db.Withdrawals.AnyAsync(w => w.BankId == id && w.Status == "pending");
+        if (pending) return BadRequest(new { error = "Cannot delete bank with pending withdrawals." });
+
         _db.LinkedBanks.Remove(bank);
         await _db.SaveChangesAsync();
         return NoContent();
+    }
+
+    [HttpGet("balance")]
+    public async Task<ActionResult<WalletBalanceResponse>> GetBalance([FromQuery] string currency = "ZAR")
+    {
+        var userId = GetUserId();
+        var balance = await _db.WalletBalances
+            .FirstOrDefaultAsync(b => b.UserId == userId && b.Currency == currency);
+        if (balance == null)
+            return Ok(new WalletBalanceResponse { Balance = 0, ReservedBalance = 0, Currency = currency });
+        return Ok(new WalletBalanceResponse
+        {
+            Balance = balance.Balance,
+            ReservedBalance = balance.ReservedBalance,
+            Currency = balance.Currency,
+        });
+    }
+
+    private static LinkedBankResponse MapBank(LinkedBank b)
+    {
+        var masked = b.AccountNumber.Length >= 4
+            ? $"****{b.AccountNumber[^4..]}" : $"****{b.AccountNumber}";
+        return new DTOs.LinkedBankResponse
+        {
+            Id = b.Id,
+            BankName = b.BankName,
+            AccountName = b.AccountName,
+            AccountNumber = masked,
+            BranchCode = b.BranchCode,
+            AccountType = b.AccountType,
+            Nickname = b.Nickname,
+            Country = b.Country,
+            Currency = b.Currency,
+            Status = b.Status,
+            IsVerified = b.IsVerified,
+            IsPrimary = b.IsPrimary,
+            RejectionReason = b.RejectionReason,
+            CreatedAt = b.CreatedAt,
+        };
     }
 
     [HttpGet("security")]

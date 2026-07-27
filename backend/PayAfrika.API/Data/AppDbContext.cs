@@ -84,6 +84,20 @@ public class AppDbContext : DbContext
     public DbSet<PlatformSetting> PlatformSettings => Set<PlatformSetting>();
     public DbSet<SettingChangeLog> SettingChangeLogs => Set<SettingChangeLog>();
 
+    public DbSet<Currency> Currencies => Set<Currency>();
+    public DbSet<ExchangeRate> ExchangeRates => Set<ExchangeRate>();
+    public DbSet<ExchangeRateProvider> ExchangeRateProviders => Set<ExchangeRateProvider>();
+    public DbSet<CurrencyPair> CurrencyPairs => Set<CurrencyPair>();
+    public DbSet<FxMargin> FxMargins => Set<FxMargin>();
+    public DbSet<ConversionRule> ConversionRules => Set<ConversionRule>();
+    public DbSet<SettlementCurrency> SettlementCurrencies => Set<SettlementCurrency>();
+    public DbSet<RegionalCurrencyRule> RegionalCurrencyRules => Set<RegionalCurrencyRule>();
+    public DbSet<ExchangeAlert> ExchangeAlerts => Set<ExchangeAlert>();
+    public DbSet<FxAuditLog> FxAuditLogs => Set<FxAuditLog>();
+    public DbSet<Deposit> Deposits => Set<Deposit>();
+    public DbSet<Withdrawal> Withdrawals => Set<Withdrawal>();
+    public DbSet<CurrencyExchange> CurrencyExchanges => Set<CurrencyExchange>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<User>(entity =>
@@ -475,6 +489,131 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<SettingChangeLog>(e =>
         {
             e.HasIndex(x => new { x.Category, x.ChangedAt });
+        });
+
+        modelBuilder.Entity<Currency>(e =>
+        {
+            e.HasIndex(x => x.Code).IsUnique();
+            e.HasIndex(x => x.IsActive);
+        });
+
+        modelBuilder.Entity<ExchangeRate>(e =>
+        {
+            e.HasOne(x => x.Provider).WithMany(x => x.ExchangeRates).HasForeignKey(x => x.ProviderId).OnDelete(DeleteBehavior.SetNull);
+            e.HasIndex(x => new { x.BaseCurrency, x.QuoteCurrency });
+            e.HasIndex(x => x.IsActive);
+        });
+
+        modelBuilder.Entity<ExchangeRateProvider>(e =>
+        {
+            e.HasIndex(x => x.Name).IsUnique();
+            e.HasIndex(x => x.IsPrimary);
+            e.HasIndex(x => x.IsActive);
+        });
+
+        modelBuilder.Entity<CurrencyPair>(e =>
+        {
+            e.HasIndex(x => new { x.BaseCurrency, x.QuoteCurrency }).IsUnique();
+            e.HasIndex(x => x.IsEnabled);
+        });
+
+        modelBuilder.Entity<FxMargin>(e =>
+        {
+            e.HasIndex(x => new { x.Type, x.IsActive });
+        });
+
+        modelBuilder.Entity<ConversionRule>(e =>
+        {
+            e.HasIndex(x => new { x.RuleType, x.IsActive });
+        });
+
+        modelBuilder.Entity<SettlementCurrency>(e =>
+        {
+            e.HasIndex(x => x.Currency).IsUnique();
+            e.HasIndex(x => x.IsDefaultSettlement);
+        });
+
+        modelBuilder.Entity<RegionalCurrencyRule>(e =>
+        {
+            e.HasIndex(x => x.Country).IsUnique();
+        });
+
+        modelBuilder.Entity<ExchangeAlert>(e =>
+        {
+            e.HasIndex(x => x.AlertType);
+        });
+
+        modelBuilder.Entity<FxAuditLog>(e =>
+        {
+            e.HasIndex(x => x.CreatedAt);
+            e.HasIndex(x => x.Action);
+            e.HasIndex(x => x.EntityType);
+        });
+
+        modelBuilder.Entity<Deposit>(entity =>
+        {
+            entity.HasOne(d => d.User)
+                  .WithMany()
+                  .HasForeignKey(d => d.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(d => d.ApprovedBy)
+                  .WithMany()
+                  .HasForeignKey(d => d.ApprovedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(d => d.Reference).IsUnique();
+            entity.HasIndex(d => d.UserId);
+            entity.HasIndex(d => d.Status);
+            entity.HasIndex(d => d.CreatedAt);
+        });
+
+        modelBuilder.Entity<Withdrawal>(entity =>
+        {
+            entity.HasOne(w => w.User)
+                  .WithMany()
+                  .HasForeignKey(w => w.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(w => w.ProcessedBy)
+                  .WithMany()
+                  .HasForeignKey(w => w.ProcessedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasIndex(w => w.Reference).IsUnique();
+            entity.HasIndex(w => w.UserId);
+            entity.HasIndex(w => w.Status);
+            entity.HasIndex(w => w.CreatedAt);
+        });
+
+        modelBuilder.Entity<CurrencyExchange>(entity =>
+        {
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.ReversedBy)
+                  .WithMany()
+                  .HasForeignKey(e => e.ReversedById)
+                  .OnDelete(DeleteBehavior.SetNull);
+
+            entity.HasOne(e => e.SourceTransaction)
+                  .WithMany()
+                  .HasForeignKey(e => e.SourceTransactionId)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasOne(e => e.DestTransaction)
+                  .WithMany()
+                  .HasForeignKey(e => e.DestTransactionId)
+                  .OnDelete(DeleteBehavior.NoAction);
+
+            entity.HasIndex(e => e.Reference).IsUnique();
+            entity.HasIndex(e => e.UserId);
+            entity.HasIndex(e => e.Status);
+            entity.HasIndex(e => e.CreatedAt);
+            entity.HasIndex(e => e.FromCurrency);
+            entity.HasIndex(e => e.ToCurrency);
         });
     }
 }

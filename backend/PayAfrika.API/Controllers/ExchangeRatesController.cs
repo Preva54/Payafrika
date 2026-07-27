@@ -7,7 +7,7 @@ namespace PayAfrika.API.Controllers;
 [ApiExplorerSettings(IgnoreApi = false)]
 public class ExchangeRatesController : ControllerBase
 {
-    private static readonly List<ExchangeRate> Rates =
+    private static readonly List<PublicExchangeRateDto> Rates =
     [
         new("USD", 18.25m, 18.35m, "US Dollar", "🇺🇸", 0.32m),
         new("NGN", 75.50m, 76.00m, "Nigerian Naira", "🇳🇬", -0.15m),
@@ -20,7 +20,7 @@ public class ExchangeRatesController : ControllerBase
     ];
 
     [HttpGet]
-    public ActionResult<IEnumerable<ExchangeRate>> Get() => Ok(Rates);
+    public ActionResult<IEnumerable<PublicExchangeRateDto>> Get() => Ok(Rates);
 }
 
-public record ExchangeRate(string Code, decimal Buy, decimal Sell, string Name, string Flag, decimal ChangePercent);
+public record PublicExchangeRateDto(string Code, decimal Buy, decimal Sell, string Name, string Flag, decimal ChangePercent);

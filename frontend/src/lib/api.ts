@@ -98,6 +98,9 @@ export interface WalletOverviewResponse {
   totalBalance: number
   availableBalance: number
   pendingBalance: number
+  portfolioValue: number
+  supportedCurrencies: number
+  reservedBalance: number
   monthlyCashFlow: number
   monthlyIncome: number
   monthlySpending: number
@@ -106,7 +109,10 @@ export interface WalletOverviewResponse {
 export interface CurrencyWalletResponse {
   currency: string
   flag: string
+  name: string
   balance: number
+  availableBalance: number
+  reservedBalance: number
   zarValue: number
   changePercent: number
   miniGraph: number[]
@@ -133,8 +139,101 @@ export interface LinkedBankResponse {
   bankName: string
   accountName: string
   accountNumber: string
+  branchCode: string | null
+  accountType: string | null
+  nickname: string | null
+  country: string | null
+  currency: string
+  status: string
   isVerified: boolean
   isPrimary: boolean
+  rejectionReason: string | null
+  createdAt: string
+}
+
+export interface LinkBankRequest {
+  bankName: string
+  accountName: string
+  accountNumber: string
+  branchCode?: string
+  accountType?: string
+  nickname?: string
+  country?: string
+  currency?: string
+}
+
+export interface UpdateBankRequest {
+  nickname?: string
+  isPrimary?: boolean
+}
+
+export interface WalletBalanceResponse {
+  balance: number
+  reservedBalance: number
+  availableBalance: number
+  currency: string
+}
+
+export interface WithdrawalResponse {
+  id: string
+  userId: string
+  userName: string
+  userEmail: string
+  reference: string
+  amount: number
+  fee: number
+  netAmount: number
+  currency: string
+  status: string
+  bankName: string
+  accountHolderName: string
+  accountNumber: string
+  branchCode: string | null
+  accountType: string | null
+  purpose: string | null
+  customerReference: string | null
+  rejectionReason: string | null
+  rejectionCategory: string | null
+  bankPaymentReference: string | null
+  processedByName: string | null
+  approvedAt: string | null
+  paidAt: string | null
+  createdAt: string
+}
+
+export interface WithdrawalListResponse {
+  data: WithdrawalResponse[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export interface WithdrawalStatsResponse {
+  pendingWithdrawals: number
+  approvedToday: number
+  rejectedToday: number
+  completedToday: number
+  totalWithdrawalValue: number
+  pendingValue: number
+  averageProcessingTimeHours: number
+}
+
+export interface SubmitWithdrawalRequest {
+  amount: number
+  currency?: string
+  bankId: string
+  purpose?: string
+  customerReference?: string
+}
+
+export interface RejectWithdrawalRequest {
+  category: string
+  reason?: string
+}
+
+export interface MarkPaidRequest {
+  bankPaymentReference?: string
 }
 
 export interface WalletNotificationResponse {
@@ -361,9 +460,12 @@ export const walletApi = {
   notifications: () => api.get<WalletNotificationResponse[]>("/wallet/notifications"),
   transactions: (page = 1, limit = 20) => api.get<Transaction[]>(`/wallet/transactions?page=${page}&limit=${limit}`),
   linkedBanks: () => api.get<LinkedBankResponse[]>("/wallet/linked-banks"),
-  linkBank: (data: { bankName: string; accountName: string; accountNumber: string }) =>
+  linkBank: (data: LinkBankRequest) =>
     api.post<LinkedBankResponse>("/wallet/linked-banks", data),
+  updateBank: (id: string, data: UpdateBankRequest) =>
+    api.put<LinkedBankResponse>(`/wallet/linked-banks/${id}`, data),
   unlinkBank: (id: string) => api.delete(`/wallet/linked-banks/${id}`),
+  getBalance: (currency = "ZAR") => api.get<WalletBalanceResponse>(`/wallet/balance?currency=${currency}`),
   exchangeRates: () => api.get<ExchangeRateResponse[]>("/wallet/exchange-rates"),
   security: () => api.get<SecurityInfoResponse>("/wallet/security"),
   cards: () => api.get<CardResponse[]>("/wallet/cards"),
@@ -1103,6 +1205,223 @@ export interface KycAnalytics {
   aiSuccessRate: number;
   countryDistribution: Record<string, number>;
   dailyVolume: { date: string; count: number }[];
+}
+
+// ──────────────────────────────────────────────
+// Deposits (Manual Deposit System)
+// ──────────────────────────────────────────────
+
+export interface DepositResponse {
+  id: string
+  userId: string
+  reference: string
+  amount: number
+  currency: string
+  status: string
+  bankName: string
+  accountHolderName: string
+  referenceUsed: string | null
+  transferDate: string
+  transferTime: string | null
+  proofUrl: string | null
+  proofFileName: string | null
+  proofContentType: string | null
+  notes: string | null
+  rejectionReason: string | null
+  rejectionCategory: string | null
+  approvedByName: string | null
+  approvedAt: string | null
+  createdAt: string
+  userName: string
+  userEmail: string
+  duplicateWarning?: string | null
+  hasDuplicate?: boolean
+}
+
+export interface DepositListResponse {
+  data: DepositResponse[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export interface DepositStatsResponse {
+  pendingDeposits: number
+  todaysDeposits: number
+  approvedToday: number
+  rejectedToday: number
+  totalDepositValue: number
+  pendingValue: number
+}
+
+export interface DepositReferenceResponse {
+  reference: string
+}
+
+export interface SubmitDepositRequest {
+  amount: number
+  currency?: string
+  bankName: string
+  accountHolderName: string
+  referenceUsed?: string
+  transferDate: string
+  transferTime?: string
+  notes?: string
+}
+
+export const depositsApi = {
+  getReference: () => api.get<DepositReferenceResponse>("/deposits/reference"),
+  submit: (data: SubmitDepositRequest) => api.post<DepositResponse>("/deposits", data),
+  uploadProof: async (id: string, file: File) => {
+    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+    const formData = new FormData()
+    formData.append("file", file)
+    const response = await fetch(`${API_URL}/deposits/${id}/proof`, {
+      method: "POST",
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      body: formData,
+    })
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: "Upload failed" }))
+      throw new Error(error.error || "Upload failed")
+    }
+    return response.json()
+  },
+  list: (page = 1, limit = 20, status?: string) => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    if (status) params.set("status", status);
+    return api.get<DepositListResponse>(`/deposits?${params.toString()}`);
+  },
+  get: (id: string) => api.get<DepositResponse>(`/deposits/${id}`),
+  getProofUrl: (id: string) => `${API_URL}/deposits/${id}/proof`,
+}
+
+export const adminDepositsApi = {
+  stats: () => api.get<DepositStatsResponse>("/admin/deposits/stats"),
+  list: (params?: {
+    page?: number; limit?: number; status?: string; search?: string;
+    bank?: string; minAmount?: number; maxAmount?: number;
+    dateFrom?: string; dateTo?: string;
+  }) => {
+    const sp = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) sp.append(key, String(value));
+      });
+    }
+    return api.get<DepositListResponse>(`/admin/deposits?${sp.toString()}`);
+  },
+  get: (id: string) => api.get<DepositResponse>(`/admin/deposits/${id}`),
+  approve: (id: string) => api.post<{ message: string }>(`/admin/deposits/${id}/approve`, {}),
+  reject: (id: string, data: { category: string; reason?: string }) =>
+    api.post<{ message: string }>(`/admin/deposits/${id}/reject`, data),
+  requestInfo: (id: string) => api.post<{ message: string }>(`/admin/deposits/${id}/request-info`, {}),
+  getProofUrl: (id: string) => `${API_URL}/admin/deposits/${id}/proof`,
+}
+
+// ──────────────────────────────────────────────
+// Withdrawals
+// ──────────────────────────────────────────────
+
+export const withdrawalsApi = {
+  submit: (data: SubmitWithdrawalRequest) => api.post<WithdrawalResponse>("/withdrawals", data),
+  list: (page = 1, limit = 20, status?: string) => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    if (status) params.set("status", status);
+    return api.get<WithdrawalListResponse>(`/withdrawals?${params.toString()}`);
+  },
+  get: (id: string) => api.get<WithdrawalResponse>(`/withdrawals/${id}`),
+}
+
+export const adminWithdrawalsApi = {
+  stats: () => api.get<WithdrawalStatsResponse>("/admin/withdrawals/stats"),
+  list: (params?: {
+    page?: number; limit?: number; status?: string; search?: string;
+    bank?: string; minAmount?: number; maxAmount?: number;
+    dateFrom?: string; dateTo?: string;
+  }) => {
+    const sp = new URLSearchParams();
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) sp.append(key, String(value));
+      });
+    }
+    return api.get<WithdrawalListResponse>(`/admin/withdrawals?${sp.toString()}`);
+  },
+  get: (id: string) => api.get<WithdrawalResponse>(`/admin/withdrawals/${id}`),
+  approve: (id: string) => api.post<{ message: string }>(`/admin/withdrawals/${id}/approve`, {}),
+  reject: (id: string, data: RejectWithdrawalRequest) =>
+    api.post<{ message: string }>(`/admin/withdrawals/${id}/reject`, data),
+  markPaid: (id: string, data?: MarkPaidRequest) =>
+    api.post<{ message: string }>(`/admin/withdrawals/${id}/mark-paid`, data ?? {}),
+  cancel: (id: string) => api.post<{ message: string }>(`/admin/withdrawals/${id}/cancel`, {}),
+}
+
+// ──────────────────────────────────────────────
+// Currency Exchange
+// ──────────────────────────────────────────────
+
+export interface ExchangeSubmitRequest {
+  amount: number
+  fromCurrency: string
+  toCurrency: string
+}
+
+export interface ExchangeQuoteResponse {
+  amount: number
+  convertedAmount: number
+  rate: number
+  fee: number
+  fxMargin: number
+  fromCurrency: string
+  toCurrency: string
+  rateTimestamp: string
+}
+
+export interface ExchangeResponse {
+  id: string
+  reference: string
+  fromCurrency: string
+  toCurrency: string
+  amount: number
+  convertedAmount: number
+  rate: number
+  fee: number
+  fxMargin: number
+  status: string
+  sourceBalanceBefore: number
+  sourceBalanceAfter: number
+  destBalanceBefore: number
+  destBalanceAfter: number
+  notes: string | null
+  createdAt: string
+  completedAt: string | null
+}
+
+export interface ExchangeListResponse {
+  data: ExchangeResponse[]
+  total: number
+  page: number
+  limit: number
+  totalPages: number
+}
+
+export const exchangeApi = {
+  quote: (data: ExchangeSubmitRequest) => api.post<ExchangeQuoteResponse>("/exchange/quote", data),
+  submit: (data: ExchangeSubmitRequest) => api.post<ExchangeResponse>("/exchange", data),
+  list: (page = 1, limit = 20) => {
+    const params = new URLSearchParams();
+    params.set("page", String(page));
+    params.set("limit", String(limit));
+    return api.get<ExchangeListResponse>(`/exchange?${params.toString()}`);
+  },
+  get: (id: string) => api.get<ExchangeResponse>(`/exchange/${id}`),
+  rates: () => api.get<ExchangeRateResponse[]>("/exchange/rates"),
 }
 
 export const kycApi = {

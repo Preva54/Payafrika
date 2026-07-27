@@ -36,10 +36,36 @@ public class LinkedBank
     [Required, MaxLength(50)]
     public string AccountNumber { get; set; } = string.Empty;
 
+    [MaxLength(50)]
+    public string? BranchCode { get; set; }
+
+    [MaxLength(50)]
+    public string? AccountType { get; set; }
+
+    [MaxLength(200)]
+    public string? Nickname { get; set; }
+
+    [MaxLength(100)]
+    public string? Country { get; set; }
+
+    [MaxLength(3)]
+    public string Currency { get; set; } = "ZAR";
+
+    [MaxLength(20)]
+    public string Status { get; set; } = "pending";
+
     public bool IsVerified { get; set; }
     public bool IsPrimary { get; set; }
 
+    [MaxLength(500)]
+    public string? RejectionReason { get; set; }
+
+    public Guid? VerifiedById { get; set; }
+    public DateTime? VerifiedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? UpdatedAt { get; set; }
 
     public User User { get; set; } = null!;
+    public User? VerifiedBy { get; set; }
 }

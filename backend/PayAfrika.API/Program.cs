@@ -46,6 +46,8 @@ builder.Services.AddScoped<IAuditService, AuditService>();
 builder.Services.AddScoped<IPermissionService, PermissionService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IAiInsightService, AiInsightService>();
+builder.Services.AddScoped<IExchangeRateService, ExchangeRateService>();
+builder.Services.AddScoped<IFxAuditService, FxAuditService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.Configure<FlutterwaveSettings>(builder.Configuration.GetSection("Payment:Flutterwave"));
@@ -924,10 +926,278 @@ using (var scope = app.Services.CreateScope())
             ""BankName"" VARCHAR(200) NOT NULL,
             ""AccountName"" VARCHAR(200) NOT NULL,
             ""AccountNumber"" VARCHAR(50) NOT NULL,
+            ""BranchCode"" VARCHAR(20) NULL,
+            ""AccountType"" VARCHAR(50) NULL,
+            ""Nickname"" VARCHAR(200) NULL,
+            ""Country"" VARCHAR(100) NULL,
+            ""Currency"" VARCHAR(3) NOT NULL DEFAULT 'ZAR',
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'pending',
             ""IsVerified"" BOOLEAN NOT NULL DEFAULT FALSE,
             ""IsPrimary"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""RejectionReason"" VARCHAR(500) NULL,
+            ""VerifiedById"" UUID NULL REFERENCES ""Users""(""Id""),
+            ""VerifiedAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS ""Currencies"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Code"" VARCHAR(3) NOT NULL,
+            ""Name"" VARCHAR(100) NOT NULL,
+            ""Symbol"" VARCHAR(10) NOT NULL DEFAULT '',
+            ""Country"" VARCHAR(100) NOT NULL DEFAULT '',
+            ""FlagEmoji"" VARCHAR(10) NOT NULL DEFAULT '',
+            ""DecimalPlaces"" INTEGER NOT NULL DEFAULT 2,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""IsDefault"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""IsArchived"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Currencies_Code"" ON ""Currencies""(""Code"");
+
+        CREATE TABLE IF NOT EXISTS ""ExchangeRateProviders"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Name"" VARCHAR(100) NOT NULL,
+            ""ApiEndpoint"" VARCHAR(500) NOT NULL DEFAULT '',
+            ""ApiKeyEncrypted"" TEXT NULL,
+            ""Priority"" INTEGER NOT NULL DEFAULT 0,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""IsPrimary"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""IsFallback"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""HealthStatus"" VARCHAR(20) NOT NULL DEFAULT 'unknown',
+            ""LastHealthCheck"" TIMESTAMPTZ NULL,
+            ""ConfigJson"" TEXT NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_ExchangeRateProviders_Name"" ON ""ExchangeRateProviders""(""Name"");
+
+        CREATE TABLE IF NOT EXISTS ""ExchangeRates"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""BaseCurrency"" VARCHAR(3) NOT NULL,
+            ""QuoteCurrency"" VARCHAR(3) NOT NULL,
+            ""BuyRate"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""SellRate"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""MidMarketRate"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""Spread"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""ProviderId"" UUID NULL REFERENCES ""ExchangeRateProviders""(""Id"") ON DELETE SET NULL,
+            ""Source"" VARCHAR(20) NOT NULL DEFAULT 'manual',
+            ""LockedUntil"" TIMESTAMPTZ NULL,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_ExchangeRates_Pair"" ON ""ExchangeRates""(""BaseCurrency"", ""QuoteCurrency"");
+
+        CREATE TABLE IF NOT EXISTS ""CurrencyPairs"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""BaseCurrency"" VARCHAR(3) NOT NULL,
+            ""QuoteCurrency"" VARCHAR(3) NOT NULL,
+            ""IsEnabled"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""PreferredProviderId"" UUID NULL,
+            ""MinBuySpread"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""MaxBuySpread"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""MinSellSpread"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""MaxSellSpread"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""DailyBuyLimit"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""DailySellLimit"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""BuyFee"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""SellFee"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""FeeType"" VARCHAR(20) NOT NULL DEFAULT 'percentage',
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CurrencyPairs_Pair"" ON ""CurrencyPairs""(""BaseCurrency"", ""QuoteCurrency"");
+
+        CREATE TABLE IF NOT EXISTS ""FxMargins"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Name"" VARCHAR(100) NOT NULL,
+            ""Type"" VARCHAR(20) NOT NULL DEFAULT 'global',
+            ""EntityId"" UUID NULL,
+            ""MarginType"" VARCHAR(20) NOT NULL DEFAULT 'percentage',
+            ""Value"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""MinValue"" DECIMAL(18,8) NULL,
+            ""MaxValue"" DECIMAL(18,8) NULL,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""Priority"" INTEGER NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS ""ConversionRules"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Name"" VARCHAR(100) NOT NULL,
+            ""RuleType"" VARCHAR(30) NOT NULL,
+            ""RoundingRule"" VARCHAR(20) NOT NULL DEFAULT 'standard',
+            ""DecimalPrecision"" INTEGER NOT NULL DEFAULT 2,
+            ""MinAmount"" DECIMAL(18,2) NULL,
+            ""MaxAmount"" DECIMAL(18,2) NULL,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""Priority"" INTEGER NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS ""SettlementCurrencies"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Currency"" VARCHAR(3) NOT NULL,
+            ""IsDefaultSettlement"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""AutoConversion"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""SettlementFrequency"" VARCHAR(20) NOT NULL DEFAULT 'daily',
+            ""MarginPercent"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""FeePercent"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_SettlementCurrencies_Currency"" ON ""SettlementCurrencies""(""Currency"");
+
+        CREATE TABLE IF NOT EXISTS ""RegionalCurrencyRules"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Country"" VARCHAR(100) NOT NULL,
+            ""DefaultCurrency"" VARCHAR(3) NOT NULL,
+            ""SupportedCurrenciesJson"" TEXT NOT NULL DEFAULT '[]',
+            ""AllowedPairsJson"" TEXT NOT NULL DEFAULT '[]',
+            ""RestrictionsJson"" TEXT NOT NULL DEFAULT '',
+            ""LocalPaymentMethodsJson"" TEXT NOT NULL DEFAULT '[]',
+            ""IsActive"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_RegionalCurrencyRules_Country"" ON ""RegionalCurrencyRules""(""Country"");
+
+        CREATE TABLE IF NOT EXISTS ""ExchangeAlerts"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""AlertType"" VARCHAR(50) NOT NULL,
+            ""Channel"" VARCHAR(50) NOT NULL DEFAULT 'email',
+            ""Threshold"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""IsEnabled"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+
+        CREATE TABLE IF NOT EXISTS ""FxAuditLogs"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NULL,
+            ""UserName"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""Action"" VARCHAR(100) NOT NULL,
+            ""EntityType"" VARCHAR(50) NOT NULL DEFAULT '',
+            ""EntityId"" VARCHAR(100) NULL,
+            ""PreviousValueJson"" TEXT NULL,
+            ""NewValueJson"" TEXT NULL,
+            ""IpAddress"" VARCHAR(50) NULL,
+            ""UserAgent"" VARCHAR(500) NULL,
             ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+
+        CREATE TABLE IF NOT EXISTS ""Deposits"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""Reference"" VARCHAR(20) NOT NULL,
+            ""Amount"" DECIMAL(18,2) NOT NULL,
+            ""Currency"" VARCHAR(3) NOT NULL DEFAULT 'ZAR',
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'pending',
+            ""BankName"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""AccountHolderName"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""ReferenceUsed"" VARCHAR(200) NULL,
+            ""TransferDate"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""TransferTime"" VARCHAR(20) NULL,
+            ""ProofUrl"" VARCHAR(500) NULL,
+            ""ProofData"" TEXT NULL,
+            ""ProofFileName"" VARCHAR(500) NULL,
+            ""ProofContentType"" VARCHAR(100) NULL,
+            ""Notes"" VARCHAR(1000) NULL,
+            ""RejectionReason"" VARCHAR(500) NULL,
+            ""RejectionCategory"" VARCHAR(100) NULL,
+            ""ApprovedById"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""ApprovedAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Deposits_Reference"" ON ""Deposits""(""Reference"");
+        CREATE INDEX IF NOT EXISTS ""IX_Deposits_UserId"" ON ""Deposits""(""UserId"");
+        CREATE INDEX IF NOT EXISTS ""IX_Deposits_Status"" ON ""Deposits""(""Status"");
+        CREATE INDEX IF NOT EXISTS ""IX_Deposits_CreatedAt"" ON ""Deposits""(""CreatedAt"");
+
+        CREATE TABLE IF NOT EXISTS ""CurrencyExchanges"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""Reference"" VARCHAR(20) NOT NULL,
+            ""FromCurrency"" VARCHAR(3) NOT NULL,
+            ""ToCurrency"" VARCHAR(3) NOT NULL,
+            ""Amount"" DECIMAL(18,2) NOT NULL,
+            ""ConvertedAmount"" DECIMAL(18,2) NOT NULL,
+            ""Rate"" DECIMAL(18,8) NOT NULL,
+            ""Fee"" DECIMAL(18,2) NOT NULL,
+            ""FeeCurrency"" VARCHAR(3) NOT NULL DEFAULT 'ZAR',
+            ""FxMargin"" DECIMAL(18,8) NOT NULL DEFAULT 0,
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'completed',
+            ""SourceWalletBalanceBefore"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""SourceWalletBalanceAfter"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""DestWalletBalanceBefore"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""DestWalletBalanceAfter"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""SourceTransactionId"" UUID NULL,
+            ""DestTransactionId"" UUID NULL,
+            ""ReversedById"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""ReversedAt"" TIMESTAMPTZ NULL,
+            ""ReversalReason"" VARCHAR(500) NULL,
+            ""Notes"" VARCHAR(500) NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""CompletedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CurrencyExchanges_Reference"" ON ""CurrencyExchanges""(""Reference"");
+        CREATE INDEX IF NOT EXISTS ""IX_CurrencyExchanges_UserId"" ON ""CurrencyExchanges""(""UserId"");
+        CREATE INDEX IF NOT EXISTS ""IX_CurrencyExchanges_Status"" ON ""CurrencyExchanges""(""Status"");
+        CREATE INDEX IF NOT EXISTS ""IX_CurrencyExchanges_CreatedAt"" ON ""CurrencyExchanges""(""CreatedAt"");
+        CREATE INDEX IF NOT EXISTS ""IX_CurrencyExchanges_Pair"" ON ""CurrencyExchanges""(""FromCurrency"", ""ToCurrency"");
+
+        CREATE TABLE IF NOT EXISTS ""Withdrawals"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""Reference"" VARCHAR(20) NOT NULL,
+            ""Amount"" DECIMAL(18,2) NOT NULL,
+            ""Fee"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""Currency"" VARCHAR(3) NOT NULL DEFAULT 'ZAR',
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'pending',
+            ""BankId"" UUID NULL,
+            ""BankName"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""AccountHolderName"" VARCHAR(200) NOT NULL DEFAULT '',
+            ""AccountNumber"" VARCHAR(50) NOT NULL DEFAULT '',
+            ""BranchCode"" VARCHAR(20) NULL,
+            ""AccountType"" VARCHAR(50) NULL,
+            ""Purpose"" VARCHAR(500) NULL,
+            ""CustomerReference"" VARCHAR(200) NULL,
+            ""RejectionReason"" VARCHAR(500) NULL,
+            ""RejectionCategory"" VARCHAR(100) NULL,
+            ""BankPaymentReference"" VARCHAR(500) NULL,
+            ""ProcessedById"" UUID NULL REFERENCES ""Users""(""Id"") ON DELETE SET NULL,
+            ""ApprovedAt"" TIMESTAMPTZ NULL,
+            ""PaidAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Withdrawals_Reference"" ON ""Withdrawals""(""Reference"");
+        CREATE INDEX IF NOT EXISTS ""IX_Withdrawals_UserId"" ON ""Withdrawals""(""UserId"");
+        CREATE INDEX IF NOT EXISTS ""IX_Withdrawals_Status"" ON ""Withdrawals""(""Status"");
+        CREATE INDEX IF NOT EXISTS ""IX_Withdrawals_CreatedAt"" ON ""Withdrawals""(""CreatedAt"");
+
+        -- Add new columns to LinkedBanks if they don't exist (for existing databases)
+        DO $$ BEGIN
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""BranchCode"" VARCHAR(20) NULL;
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""AccountType"" VARCHAR(50) NULL;
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""Nickname"" VARCHAR(200) NULL;
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""Country"" VARCHAR(100) NULL;
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""Currency"" VARCHAR(3) NOT NULL DEFAULT 'ZAR';
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""Status"" VARCHAR(20) NOT NULL DEFAULT 'pending';
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""RejectionReason"" VARCHAR(500) NULL;
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""VerifiedById"" UUID NULL;
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""VerifiedAt"" TIMESTAMPTZ NULL;
+            ALTER TABLE ""LinkedBanks"" ADD COLUMN IF NOT EXISTS ""UpdatedAt"" TIMESTAMPTZ NULL;
+        END $$;
     ");
 
     db.Database.ExecuteSqlRaw(@"
@@ -1077,6 +1347,118 @@ using (var scope = app.Services.CreateScope())
             });
             db.SaveChanges();
         }
+    }
+
+    // Seed exchange data
+    if (!db.Currencies.Any())
+    {
+        var currencies = new List<PayAfrika.API.Models.Currency>
+        {
+            new() { Code = "ZAR", Name = "South African Rand", Symbol = "R", Country = "South Africa", FlagEmoji = "🇿🇦", DecimalPlaces = 2, IsDefault = true, SortOrder = 1 },
+            new() { Code = "USD", Name = "US Dollar", Symbol = "$", Country = "United States", FlagEmoji = "🇺🇸", DecimalPlaces = 2, SortOrder = 2 },
+            new() { Code = "EUR", Name = "Euro", Symbol = "€", Country = "European Union", FlagEmoji = "🇪🇺", DecimalPlaces = 2, SortOrder = 3 },
+            new() { Code = "GBP", Name = "British Pound", Symbol = "£", Country = "United Kingdom", FlagEmoji = "🇬🇧", DecimalPlaces = 2, SortOrder = 4 },
+            new() { Code = "NGN", Name = "Nigerian Naira", Symbol = "₦", Country = "Nigeria", FlagEmoji = "🇳🇬", DecimalPlaces = 2, SortOrder = 5 },
+            new() { Code = "GHS", Name = "Ghanaian Cedi", Symbol = "₵", Country = "Ghana", FlagEmoji = "🇬🇭", DecimalPlaces = 2, SortOrder = 6 },
+            new() { Code = "KES", Name = "Kenyan Shilling", Symbol = "KSh", Country = "Kenya", FlagEmoji = "🇰🇪", DecimalPlaces = 2, SortOrder = 7 },
+            new() { Code = "UGX", Name = "Ugandan Shilling", Symbol = "USh", Country = "Uganda", FlagEmoji = "🇺🇬", DecimalPlaces = 0, SortOrder = 8 },
+            new() { Code = "TZS", Name = "Tanzanian Shilling", Symbol = "TSh", Country = "Tanzania", FlagEmoji = "🇹🇿", DecimalPlaces = 0, SortOrder = 9 },
+            new() { Code = "BWP", Name = "Botswana Pula", Symbol = "P", Country = "Botswana", FlagEmoji = "🇧🇼", DecimalPlaces = 2, SortOrder = 10 },
+            new() { Code = "NAD", Name = "Namibian Dollar", Symbol = "$", Country = "Namibia", FlagEmoji = "🇳🇦", DecimalPlaces = 2, SortOrder = 11 },
+            new() { Code = "ZMW", Name = "Zambian Kwacha", Symbol = "ZK", Country = "Zambia", FlagEmoji = "🇿🇲", DecimalPlaces = 2, SortOrder = 12 },
+            new() { Code = "MZN", Name = "Mozambican Metical", Symbol = "MT", Country = "Mozambique", FlagEmoji = "🇲🇿", DecimalPlaces = 2, SortOrder = 13 },
+            new() { Code = "EGP", Name = "Egyptian Pound", Symbol = "E£", Country = "Egypt", FlagEmoji = "🇪🇬", DecimalPlaces = 2, SortOrder = 14 },
+            new() { Code = "MAD", Name = "Moroccan Dirham", Symbol = "DH", Country = "Morocco", FlagEmoji = "🇲🇦", DecimalPlaces = 2, SortOrder = 15 },
+        };
+        db.Currencies.AddRange(currencies);
+        db.SaveChanges();
+    }
+
+    if (!db.ExchangeRateProviders.Any())
+    {
+        var providers = new List<PayAfrika.API.Models.ExchangeRateProvider>
+        {
+            new() { Name = "Open Exchange Rates", ApiEndpoint = "https://openexchangerates.org/api/latest.json", Priority = 1, IsPrimary = true, IsActive = true, HealthStatus = "unknown" },
+            new() { Name = "ExchangeRate-API", ApiEndpoint = "https://api.exchangerate-api.com/v4/latest/USD", Priority = 2, IsFallback = true, IsActive = true, HealthStatus = "unknown" },
+            new() { Name = "CurrencyLayer", ApiEndpoint = "https://api.currencylayer.com/live", Priority = 3, IsFallback = true, IsActive = true, HealthStatus = "unknown" },
+            new() { Name = "Fixer.io", ApiEndpoint = "https://data.fixer.io/api/latest", Priority = 4, IsActive = false, HealthStatus = "unknown" },
+            new() { Name = "XE", ApiEndpoint = "https://xecdapi.xe.com/v1/", Priority = 5, IsActive = false, HealthStatus = "unknown" },
+            new() { Name = "Wise API", ApiEndpoint = "https://api.wise.com/v1/rates", Priority = 6, IsActive = false, HealthStatus = "unknown" },
+        };
+        db.ExchangeRateProviders.AddRange(providers);
+        db.SaveChanges();
+    }
+
+    if (!db.ExchangeRates.Any())
+    {
+        var primaryProvider = db.ExchangeRateProviders.FirstOrDefault(p => p.IsPrimary);
+        var rates = new List<PayAfrika.API.Models.ExchangeRate>
+        {
+            new() { BaseCurrency = "USD", QuoteCurrency = "ZAR", BuyRate = 18.25m, SellRate = 18.55m, MidMarketRate = 18.40m, Spread = 0.30m, ProviderId = primaryProvider?.Id, Source = "seed" },
+            new() { BaseCurrency = "EUR", QuoteCurrency = "ZAR", BuyRate = 20.00m, SellRate = 20.30m, MidMarketRate = 20.15m, Spread = 0.30m, ProviderId = primaryProvider?.Id, Source = "seed" },
+            new() { BaseCurrency = "GBP", QuoteCurrency = "ZAR", BuyRate = 23.10m, SellRate = 23.50m, MidMarketRate = 23.30m, Spread = 0.40m, ProviderId = primaryProvider?.Id, Source = "seed" },
+            new() { BaseCurrency = "USD", QuoteCurrency = "NGN", BuyRate = 1550m, SellRate = 1580m, MidMarketRate = 1565m, Spread = 30m, ProviderId = primaryProvider?.Id, Source = "seed" },
+            new() { BaseCurrency = "USD", QuoteCurrency = "KES", BuyRate = 145m, SellRate = 148m, MidMarketRate = 146.5m, Spread = 3m, ProviderId = primaryProvider?.Id, Source = "seed" },
+            new() { BaseCurrency = "USD", QuoteCurrency = "GHS", BuyRate = 14.5m, SellRate = 14.8m, MidMarketRate = 14.65m, Spread = 0.3m, ProviderId = primaryProvider?.Id, Source = "seed" },
+            new() { BaseCurrency = "EUR", QuoteCurrency = "USD", BuyRate = 1.08m, SellRate = 1.10m, MidMarketRate = 1.09m, Spread = 0.02m, ProviderId = primaryProvider?.Id, Source = "seed" },
+            new() { BaseCurrency = "GBP", QuoteCurrency = "USD", BuyRate = 1.26m, SellRate = 1.28m, MidMarketRate = 1.27m, Spread = 0.02m, ProviderId = primaryProvider?.Id, Source = "seed" },
+            new() { BaseCurrency = "USD", QuoteCurrency = "BWP", BuyRate = 13.5m, SellRate = 13.8m, MidMarketRate = 13.65m, Spread = 0.3m, ProviderId = primaryProvider?.Id, Source = "seed" },
+            new() { BaseCurrency = "USD", QuoteCurrency = "ZMW", BuyRate = 25.0m, SellRate = 25.5m, MidMarketRate = 25.25m, Spread = 0.5m, ProviderId = primaryProvider?.Id, Source = "seed" },
+        };
+        db.ExchangeRates.AddRange(rates);
+        db.SaveChanges();
+    }
+
+    if (!db.CurrencyPairs.Any())
+    {
+        var pairs = new List<PayAfrika.API.Models.CurrencyPair>
+        {
+            new() { BaseCurrency = "USD", QuoteCurrency = "ZAR", IsEnabled = true, MinBuySpread = 0.1m, MaxBuySpread = 0.5m, BuyFee = 0.5m, SellFee = 0.5m, FeeType = "percentage", SortOrder = 1 },
+            new() { BaseCurrency = "EUR", QuoteCurrency = "ZAR", IsEnabled = true, MinBuySpread = 0.1m, MaxBuySpread = 0.5m, BuyFee = 0.5m, SellFee = 0.5m, FeeType = "percentage", SortOrder = 2 },
+            new() { BaseCurrency = "GBP", QuoteCurrency = "ZAR", IsEnabled = true, MinBuySpread = 0.2m, MaxBuySpread = 0.6m, BuyFee = 0.5m, SellFee = 0.5m, FeeType = "percentage", SortOrder = 3 },
+            new() { BaseCurrency = "USD", QuoteCurrency = "NGN", IsEnabled = true, MinBuySpread = 10m, MaxBuySpread = 50m, BuyFee = 0.8m, SellFee = 0.8m, FeeType = "percentage", SortOrder = 4 },
+            new() { BaseCurrency = "USD", QuoteCurrency = "KES", IsEnabled = true, MinBuySpread = 1m, MaxBuySpread = 5m, BuyFee = 0.7m, SellFee = 0.7m, FeeType = "percentage", SortOrder = 5 },
+            new() { BaseCurrency = "USD", QuoteCurrency = "GHS", IsEnabled = true, MinBuySpread = 0.1m, MaxBuySpread = 0.5m, BuyFee = 0.7m, SellFee = 0.7m, FeeType = "percentage", SortOrder = 6 },
+            new() { BaseCurrency = "EUR", QuoteCurrency = "USD", IsEnabled = true, MinBuySpread = 0.01m, MaxBuySpread = 0.03m, BuyFee = 0.3m, SellFee = 0.3m, FeeType = "percentage", SortOrder = 7 },
+            new() { BaseCurrency = "GBP", QuoteCurrency = "USD", IsEnabled = true, MinBuySpread = 0.01m, MaxBuySpread = 0.03m, BuyFee = 0.3m, SellFee = 0.3m, FeeType = "percentage", SortOrder = 8 },
+        };
+        db.CurrencyPairs.AddRange(pairs);
+        db.SaveChanges();
+    }
+
+    if (!db.FxMargins.Any())
+    {
+        db.FxMargins.Add(new PayAfrika.API.Models.FxMargin { Name = "Global Margin", Type = "global", MarginType = "percentage", Value = 0.5m, Priority = 1 });
+        db.FxMargins.Add(new PayAfrika.API.Models.FxMargin { Name = "Premium Customer", Type = "customer", MarginType = "percentage", Value = 0.25m, Priority = 2 });
+        db.FxMargins.Add(new PayAfrika.API.Models.FxMargin { Name = "VIP Merchant", Type = "merchant", MarginType = "percentage", Value = 0.15m, Priority = 3 });
+        db.FxMargins.Add(new PayAfrika.API.Models.FxMargin { Name = "USD/ZAR Pair", Type = "pair", MarginType = "fixed", Value = 0.1m, Priority = 4 });
+        db.SaveChanges();
+    }
+
+    if (!db.SettlementCurrencies.Any())
+    {
+        db.SettlementCurrencies.Add(new PayAfrika.API.Models.SettlementCurrency { Currency = "ZAR", IsDefaultSettlement = true, AutoConversion = true, SettlementFrequency = "daily", MarginPercent = 0.5m, FeePercent = 0.5m });
+        db.SettlementCurrencies.Add(new PayAfrika.API.Models.SettlementCurrency { Currency = "USD", IsDefaultSettlement = false, AutoConversion = true, SettlementFrequency = "daily", MarginPercent = 0.5m, FeePercent = 0.5m });
+        db.SettlementCurrencies.Add(new PayAfrika.API.Models.SettlementCurrency { Currency = "EUR", IsDefaultSettlement = false, AutoConversion = true, SettlementFrequency = "weekly", MarginPercent = 0.5m, FeePercent = 0.5m });
+        db.SaveChanges();
+    }
+
+    if (!db.ExchangeAlerts.Any())
+    {
+        db.ExchangeAlerts.Add(new PayAfrika.API.Models.ExchangeAlert { AlertType = "large_rate_change", Channel = "email", Threshold = 2m, IsEnabled = true });
+        db.ExchangeAlerts.Add(new PayAfrika.API.Models.ExchangeAlert { AlertType = "provider_failure", Channel = "slack", Threshold = 0m, IsEnabled = true });
+        db.ExchangeAlerts.Add(new PayAfrika.API.Models.ExchangeAlert { AlertType = "manual_override", Channel = "email", Threshold = 0m, IsEnabled = true });
+        db.ExchangeAlerts.Add(new PayAfrika.API.Models.ExchangeAlert { AlertType = "high_spread", Channel = "email", Threshold = 1m, IsEnabled = true });
+        db.ExchangeAlerts.Add(new PayAfrika.API.Models.ExchangeAlert { AlertType = "sync_failure", Channel = "slack", Threshold = 0m, IsEnabled = true });
+        db.SaveChanges();
+    }
+
+    if (!db.ConversionRules.Any())
+    {
+        db.ConversionRules.Add(new PayAfrika.API.Models.ConversionRule { Name = "Auto Conversion Default", RuleType = "auto", RoundingRule = "standard", DecimalPrecision = 2, MinAmount = 1m, MaxAmount = 1000000m, Priority = 1 });
+        db.ConversionRules.Add(new PayAfrika.API.Models.ConversionRule { Name = "Manual Conversion", RuleType = "manual", RoundingRule = "round_up", DecimalPrecision = 2, MinAmount = 10m, MaxAmount = 500000m, Priority = 2 });
+        db.ConversionRules.Add(new PayAfrika.API.Models.ConversionRule { Name = "Multi-Currency Wallet", RuleType = "multi_wallet", RoundingRule = "standard", DecimalPrecision = 2, MinAmount = 0m, MaxAmount = 100000m, Priority = 3 });
+        db.SaveChanges();
     }
 
 }

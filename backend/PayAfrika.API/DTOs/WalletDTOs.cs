@@ -10,6 +10,9 @@ public class WalletOverviewResponse
     public decimal MonthlyCashFlow { get; set; }
     public decimal MonthlyIncome { get; set; }
     public decimal MonthlySpending { get; set; }
+    public int SupportedCurrencies { get; set; }
+    public decimal PortfolioValue { get; set; }
+    public decimal ReservedBalance { get; set; }
 }
 
 public class CurrencyWalletResponse
@@ -20,6 +23,9 @@ public class CurrencyWalletResponse
     public decimal ZARValue { get; set; }
     public decimal ChangePercent { get; set; }
     public List<decimal> MiniGraph { get; set; } = new();
+    public decimal AvailableBalance { get; set; }
+    public decimal ReservedBalance { get; set; }
+    public string Name { get; set; } = string.Empty;
 }
 
 public class WalletActionRequest
@@ -88,26 +94,6 @@ public class SpendingRecommendation
     public string Title { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public string Action { get; set; } = string.Empty;
-}
-
-public class LinkedBankResponse
-{
-    public Guid Id { get; set; }
-    public string BankName { get; set; } = string.Empty;
-    public string AccountName { get; set; } = string.Empty;
-    public string AccountNumber { get; set; } = string.Empty;
-    public bool IsVerified { get; set; }
-    public bool IsPrimary { get; set; }
-}
-
-public class LinkBankRequest
-{
-    [Required, MaxLength(200)]
-    public string BankName { get; set; } = string.Empty;
-    [Required, MaxLength(200)]
-    public string AccountName { get; set; } = string.Empty;
-    [Required, MaxLength(50)]
-    public string AccountNumber { get; set; } = string.Empty;
 }
 
 public class WalletNotificationResponse
@@ -198,4 +184,72 @@ public class CardResponse
     public bool IsFrozen { get; set; }
     public bool IsVirtual { get; set; }
     public decimal? Limit { get; set; }
+}
+
+public class ExchangeSubmitRequest
+{
+    [Required, Range(1, double.MaxValue)]
+    public decimal Amount { get; set; }
+    [Required, MaxLength(3)]
+    public string FromCurrency { get; set; } = "ZAR";
+    [Required, MaxLength(3)]
+    public string ToCurrency { get; set; } = "USD";
+}
+
+public class ExchangeResponse
+{
+    public Guid Id { get; set; }
+    public string Reference { get; set; } = string.Empty;
+    public string FromCurrency { get; set; } = string.Empty;
+    public string ToCurrency { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+    public decimal ConvertedAmount { get; set; }
+    public decimal Rate { get; set; }
+    public decimal Fee { get; set; }
+    public decimal FxMargin { get; set; }
+    public string Status { get; set; } = string.Empty;
+    public decimal SourceBalanceBefore { get; set; }
+    public decimal SourceBalanceAfter { get; set; }
+    public decimal DestBalanceBefore { get; set; }
+    public decimal DestBalanceAfter { get; set; }
+    public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime? CompletedAt { get; set; }
+}
+
+public class ExchangeListResponse
+{
+    public List<ExchangeResponse> Data { get; set; } = new();
+    public int Total { get; set; }
+    public int Page { get; set; }
+    public int Limit { get; set; }
+    public int TotalPages { get; set; }
+}
+
+public class ExchangeQuoteResponse
+{
+    public decimal Amount { get; set; }
+    public decimal ConvertedAmount { get; set; }
+    public decimal Rate { get; set; }
+    public decimal Fee { get; set; }
+    public decimal FxMargin { get; set; }
+    public string FromCurrency { get; set; } = string.Empty;
+    public string ToCurrency { get; set; } = string.Empty;
+    public DateTime RateTimestamp { get; set; }
+}
+
+public class AdminExchangeStatsResponse
+{
+    public int TodaysExchanges { get; set; }
+    public decimal TotalFxVolume { get; set; }
+    public decimal FxRevenue { get; set; }
+    public decimal AverageExchangeSize { get; set; }
+    public int FailedExchanges { get; set; }
+    public string MostTradedPair { get; set; } = string.Empty;
+}
+
+public class ReverseExchangeRequest
+{
+    [Required, MaxLength(500)]
+    public string Reason { get; set; } = string.Empty;
 }
