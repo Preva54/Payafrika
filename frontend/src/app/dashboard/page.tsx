@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Wallet, ArrowLeftRight, HandCoins, CreditCard, TrendingUp, TrendingDown, ArrowRight, Plus, RefreshCw } from "lucide-react"
+import { Wallet, ArrowLeftRight, HandCoins, CreditCard, TrendingUp, TrendingDown, ArrowRight, Plus, RefreshCw, X, Loader2 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
-import { dashboardApi, type WalletResponse, type Transaction, type LoanResponse, type UserInfo } from "@/lib/api"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+
+import { dashboardApi, walletApi, type WalletResponse, type Transaction, type LoanResponse, type UserInfo } from "@/lib/api"
 
 export default function DashboardPage() {
   const [user, setUser] = useState<UserInfo | null>(null)
@@ -15,6 +18,32 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loans, setLoans] = useState<LoanResponse[]>([])
   const [loading, setLoading] = useState(true)
+  const [showDepositForm, setShowDepositForm] = useState(false)
+  const [depositAmount, setDepositAmount] = useState("")
+  const [depositing, setDepositing] = useState(false)
+  const [depositError, setDepositError] = useState("")
+  const [depositSuccess, setDepositSuccess] = useState(false)
+
+  const handleDeposit = async () => {
+    const amount = parseFloat(depositAmount)
+    if (!amount || amount <= 0) {
+      setDepositError("Enter a valid amount")
+      return
+    }
+    setDepositing(true)
+    setDepositError("")
+    setDepositSuccess(false)
+    try {
+      await walletApi.deposit(amount)
+      setDepositSuccess(true)
+      setDepositAmount("")
+      fetchData()
+    } catch (e: unknown) {
+      setDepositError(e instanceof Error ? e.message : "Deposit failed")
+    } finally {
+      setDepositing(false)
+    }
+  }
 
   const fetchData = async () => {
     setLoading(true)
@@ -160,7 +189,7 @@ export default function DashboardPage() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 gap-3">
-                <Button variant="gradient" className="h-auto py-4 flex-col gap-1">
+                <Button variant="gradient" className="h-auto py-4 flex-col gap-1" onClick={() => { setShowDepositForm(!showDepositForm); setDepositError(""); setDepositSuccess(false) }}>
                   <Plus className="h-5 w-5" />
                   <span className="text-xs font-normal">Deposit</span>
                 </Button>
@@ -177,6 +206,40 @@ export default function DashboardPage() {
                   <span className="text-xs font-normal">Pay</span>
                 </Button>
               </div>
+
+              {showDepositForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="mt-4 pt-4 border-t"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <h4 className="text-sm font-semibold">Deposit Funds</h4>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setShowDepositForm(false)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="deposit-amount">Amount (ZAR)</Label>
+                      <Input
+                        id="deposit-amount"
+                        type="number"
+                        placeholder="0.00"
+                        value={depositAmount}
+                        onChange={(e) => { setDepositAmount(e.target.value); setDepositError(""); setDepositSuccess(false) }}
+                      />
+                    </div>
+                    {depositError && <p className="text-xs text-destructive">{depositError}</p>}
+                    {depositSuccess && <p className="text-xs text-accent">Deposit submitted successfully!</p>}
+                    <Button variant="gradient" size="sm" className="w-full" onClick={handleDeposit} disabled={depositing}>
+                      {depositing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Plus className="h-4 w-4 mr-2" />}
+                      {depositing ? "Processing..." : "Submit Deposit"}
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
             </CardContent>
           </Card>
 

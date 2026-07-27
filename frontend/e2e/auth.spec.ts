@@ -17,7 +17,7 @@ test.describe("Authentication", () => {
       const passwordInput = page.getByLabel("Password")
       await expect(passwordInput).toHaveAttribute("type", "password")
 
-      await page.getByRole("button", { name: /toggle password visibility/i }).click()
+      await page.locator('form button[type="button"]').click()
       await expect(passwordInput).toHaveAttribute("type", "text")
     })
 
@@ -71,7 +71,7 @@ test.describe("Authentication", () => {
     test("renders forgot password form", async ({ page }) => {
       await page.goto("/auth/forgot-password")
 
-      await expect(page.getByRole("heading", { name: /forgot/i })).toBeVisible()
+      await expect(page.getByRole("heading", { name: /reset/i })).toBeVisible()
       await expect(page.getByLabel("Email")).toBeVisible()
     })
   })
@@ -80,7 +80,7 @@ test.describe("Authentication", () => {
     test("renders verification form", async ({ page }) => {
       await page.goto("/auth/verify-email")
 
-      await expect(page.getByText(/verify/i)).toBeVisible()
+      await expect(page.getByRole("heading", { name: /verify/i })).toBeVisible()
     })
   })
 })
