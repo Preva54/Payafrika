@@ -31,6 +31,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { walletApi, type WalletResponse, type WalletOverviewResponse, type CurrencyWalletResponse, type WalletAnalyticsResponse, type SpendingInsightResponse, type LinkedBankResponse, type WalletNotificationResponse, type SecurityInfoResponse, type CardResponse, type ExchangeRateResponse, type QRResponse, type Transaction } from "@/lib/api"
+import DepositFundsSection from "@/components/dashboard/deposit-funds-section"
 
 const CURRENCIES = ["ZAR", "USD", "EUR", "GBP", "NGN", "KES", "BTC", "ETH", "USDT"]
 const CURRENCY_FLAGS: Record<string, string> = {
@@ -427,6 +428,8 @@ export default function WalletPage() {
                   <QrCode className="h-5 w-5" /><span className="text-sm">Receive</span>
                 </Button>
               </div>
+
+              <DepositFundsSection />
 
               {insights.length > 0 && (
                 <div className="grid gap-3">
