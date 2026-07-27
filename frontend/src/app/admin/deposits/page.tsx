@@ -561,7 +561,7 @@ export default function AdminDepositsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Approve Deposit</DialogTitle>
-            <DialogDescription>This will credit the customer's wallet immediately.</DialogDescription>
+            <DialogDescription>This will credit the customer&apos;s wallet immediately.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="p-4 rounded-xl bg-muted/50 space-y-2">

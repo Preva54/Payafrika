@@ -176,16 +176,16 @@ export default function DepositsPage() {
           await depositsApi.uploadProof(res.id, file)
           // Simulate remaining progress to completion
           setUploadProgress(100)
-        } catch (uploadErr: any) {
-          setError(uploadErr.message || "Deposit submitted but proof upload failed. You can upload later.")
+        } catch (uploadErr: unknown) {
+          setError(uploadErr instanceof Error ? uploadErr.message : "Deposit submitted but proof upload failed. You can upload later.")
         }
       }
 
       setSubmittedDeposit(res)
       setStep(4)
       fetchData()
-    } catch (e: any) {
-      setError(e.message || "Failed to submit deposit.")
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to submit deposit.")
     }
     setSubmitting(false)
   }
@@ -344,7 +344,7 @@ export default function DepositsPage() {
                     </div>
                     <div>
                       <h2 className="text-xl font-bold">Deposit Funds</h2>
-                      <p className="text-muted-foreground mt-1">Transfer money to PayAfrika's bank account to fund your wallet</p>
+                      <p className="text-muted-foreground mt-1">Transfer money to PayAfrika&apos;s bank account to fund your wallet</p>
                     </div>
                     <Button variant="gradient" size="lg" onClick={() => { setShowForm(true); setStep(1) }}>
                       + Deposit Funds
@@ -436,7 +436,7 @@ export default function DepositsPage() {
                             <Separator />
 
                             <Button variant="gradient" className="w-full" onClick={() => setStep(2)}>
-                              I've Made the Transfer <ArrowRight className="ml-2 h-4 w-4" />
+                              I&apos;ve Made the Transfer <ArrowRight className="ml-2 h-4 w-4" />
                             </Button>
                           </CardContent>
                         </Card>

@@ -141,8 +141,8 @@ export default function ExchangePage() {
       const q = await exchangeApi.quote({ amount: num, fromCurrency: from, toCurrency: to })
       setQuote(q)
       setError("")
-    } catch (e: any) {
-      setError(e.message || "Failed to get quote")
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to get quote")
     }
   }, [])
 
@@ -168,8 +168,8 @@ export default function ExchangePage() {
       const q = await exchangeApi.quote({ amount: num, fromCurrency, toCurrency })
       setQuote(q)
       setStep(1)
-    } catch (e: any) {
-      setError(e.message || "Failed to get quote")
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to get quote")
     }
   }
 
@@ -182,8 +182,8 @@ export default function ExchangePage() {
       const res = await exchangeApi.submit({ amount: num, fromCurrency, toCurrency })
       setResult(res)
       setStep(3)
-    } catch (e: any) {
-      setError(e.message || "Exchange failed")
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Exchange failed")
       setStep(1)
     }
     setSubmitting(false)

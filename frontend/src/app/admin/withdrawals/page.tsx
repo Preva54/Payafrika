@@ -509,7 +509,7 @@ export default function AdminWithdrawalsPage() {
           <DialogHeader>
             <DialogTitle>Mark as Paid</DialogTitle>
             <DialogDescription>
-              Confirm that withdrawal {selected?.reference} has been sent to the customer's bank.
+              Confirm that withdrawal {selected?.reference} has been sent to the customer&apos;s bank.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">

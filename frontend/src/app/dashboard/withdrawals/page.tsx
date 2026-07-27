@@ -345,7 +345,7 @@ export default function WithdrawalsPage() {
                       </div>
                       <Separator />
                       <div className="flex justify-between font-bold">
-                        <span>You'll Receive</span>
+                        <span>You&apos;ll Receive</span>
                         <span>R {netAmount.toFixed(2)}</span>
                       </div>
                     </div>
@@ -402,7 +402,7 @@ export default function WithdrawalsPage() {
                     </div>
                     <Separator />
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">You'll Receive</span>
+                      <span className="text-muted-foreground">You&apos;ll Receive</span>
                       <span className="font-bold text-lg">R {netAmount.toFixed(2)}</span>
                     </div>
                     {purpose && (
@@ -461,7 +461,7 @@ export default function WithdrawalsPage() {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Your withdrawal is pending admin approval. You'll be notified once it's processed.
+                    Your withdrawal is pending admin approval. You&apos;ll be notified once it&apos;s processed.
                   </p>
                 </div>
               )}
