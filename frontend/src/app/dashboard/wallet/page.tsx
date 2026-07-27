@@ -33,6 +33,7 @@ import {
 import { walletApi, type WalletResponse, type WalletOverviewResponse, type CurrencyWalletResponse, type WalletAnalyticsResponse, type SpendingInsightResponse, type LinkedBankResponse, type WalletNotificationResponse, type SecurityInfoResponse, type CardResponse, type ExchangeRateResponse, type QRResponse, type Transaction } from "@/lib/api"
 import DepositFundsSection from "@/components/dashboard/deposit-funds-section"
 import WithdrawFundsSection from "@/components/dashboard/withdraw-funds-section"
+import ExchangeCurrencySection from "@/components/dashboard/exchange-currency-section"
 
 const CURRENCIES = ["ZAR", "USD", "EUR", "GBP", "NGN", "KES", "BTC", "ETH", "USDT"]
 const CURRENCY_FLAGS: Record<string, string> = {
@@ -433,6 +434,8 @@ export default function WalletPage() {
               <DepositFundsSection />
 
               <WithdrawFundsSection />
+
+              <ExchangeCurrencySection />
 
               {insights.length > 0 && (
                 <div className="grid gap-3">
