@@ -15,7 +15,11 @@ import { exchangeApi, type ExchangeResponse, type ExchangeListResponse } from "@
 import Link from "next/link"
 
 function formatCurrency(amount: number, currency = "ZAR"): string {
-  return new Intl.NumberFormat("en-ZA", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+  try {
+    return new Intl.NumberFormat("en-ZA", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`
+  }
 }
 
 const CURRENCY_FLAGS: Record<string, string> = {

@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { exchangeApi, exchangeRatesApi, type ExchangeQuoteResponse, type ExchangeResponse, type ExchangeRateResponse } from "@/lib/api"
+import { exchangeApi, type ExchangeQuoteResponse, type ExchangeResponse, type ExchangeRateResponse } from "@/lib/api"
 import Link from "next/link"
 
 const CURRENCIES = ["ZAR", "USD", "EUR", "GBP", "NGN", "KES", "BTC", "ETH", "USDT"]
@@ -25,7 +25,11 @@ const CURRENCY_FLAGS: Record<string, string> = {
 }
 
 function formatCurrency(amount: number, currency = "ZAR"): string {
-  return new Intl.NumberFormat("en-ZA", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+  try {
+    return new Intl.NumberFormat("en-ZA", { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount)
+  } catch {
+    return `${currency} ${amount.toFixed(2)}`
+  }
 }
 
 function StepIndicator({ step }: { step: number }) {
@@ -119,7 +123,7 @@ export default function ExchangePage() {
 
   const fetchRates = useCallback(async () => {
     try {
-      const data = await exchangeRatesApi.get()
+      const data = await exchangeApi.rates()
       setRates(data)
     } catch { }
   }, [])
