@@ -115,43 +115,43 @@ export interface CreateInvitationRequest {
 }
 
 export const rbacApi = {
-  dashboard: () => request<RoleDashboard>("/api/admin/roles/dashboard"),
+  dashboard: () => request<RoleDashboard>("/admin/roles/dashboard"),
 
-  getAll: () => request<RoleDefinition[]>("/api/admin/roles"),
+  getAll: () => request<RoleDefinition[]>("/admin/roles"),
 
-  getById: (id: string) => request<RoleDefinition>(`/api/admin/roles/${id}`),
+  getById: (id: string) => request<RoleDefinition>(`/admin/roles/${id}`),
 
   create: (data: CreateRoleRequest) =>
-    request<RoleDefinition>("/api/admin/roles", { method: "POST", body: JSON.stringify(data) }),
+    request<RoleDefinition>("/admin/roles", { method: "POST", body: JSON.stringify(data) }),
 
   update: (id: string, data: Partial<CreateRoleRequest>) =>
-    request<RoleDefinition>(`/api/admin/roles/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+    request<RoleDefinition>(`/admin/roles/${id}`, { method: "PUT", body: JSON.stringify(data) }),
 
   delete: (id: string) =>
-    request<void>(`/api/admin/roles/${id}`, { method: "DELETE" }),
+    request<void>(`/admin/roles/${id}`, { method: "DELETE" }),
 
   clone: (id: string) =>
-    request<RoleDefinition>(`/api/admin/roles/${id}/clone`, { method: "POST" }),
+    request<RoleDefinition>(`/admin/roles/${id}/clone`, { method: "POST" }),
 
-  permissions: () => request<Permission[]>("/api/admin/roles/permissions"),
+  permissions: () => request<Permission[]>("/admin/roles/permissions"),
 
   seedPermissions: () =>
-    request<{ count: number }>("/api/admin/roles/seed-permissions", { method: "POST" }),
+    request<{ count: number }>("/admin/roles/seed-permissions", { method: "POST" }),
 
   assign: (data: AssignRoleRequest) =>
-    request<UserAssignment>("/api/admin/roles/assign", { method: "POST", body: JSON.stringify(data) }),
+    request<UserAssignment>("/admin/roles/assign", { method: "POST", body: JSON.stringify(data) }),
 
   removeAssignment: (assignmentId: string) =>
-    request<void>(`/api/admin/roles/assign/${assignmentId}`, { method: "DELETE" }),
+    request<void>(`/admin/roles/assign/${assignmentId}`, { method: "DELETE" }),
 
   assignments: (roleId?: string) =>
-    request<UserAssignment[]>(`/api/admin/roles/assignments${roleId ? `?roleId=${roleId}` : ""}`),
+    request<UserAssignment[]>(`/admin/roles/assignments${roleId ? `?roleId=${roleId}` : ""}`),
 
   invite: (data: CreateInvitationRequest) =>
-    request<Invitation>("/api/admin/roles/invite", { method: "POST", body: JSON.stringify(data) }),
+    request<Invitation>("/admin/roles/invite", { method: "POST", body: JSON.stringify(data) }),
 
-  invitations: () => request<Invitation[]>("/api/admin/roles/invitations"),
+  invitations: () => request<Invitation[]>("/admin/roles/invitations"),
 
   cancelInvitation: (id: string) =>
-    request<void>(`/api/admin/roles/invitations/${id}`, { method: "DELETE" }),
+    request<void>(`/admin/roles/invitations/${id}`, { method: "DELETE" }),
 }
