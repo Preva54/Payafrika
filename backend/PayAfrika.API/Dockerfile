@@ -1,7 +1,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 WORKDIR /app
 
-COPY PayAfrika.API/PayAfrika.API.csproj ./PayAfrika.API/
+COPY PayAfrika.API.csproj ./PayAfrika.API/
 RUN dotnet restore ./PayAfrika.API/PayAfrika.API.csproj
 
 COPY . .
