@@ -1,4 +1,4 @@
-const API_URL = "https://pafrikav2-api.ambitiousocean-b7255ba5.northeurope.azurecontainerapps.io/api"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://pafrikav2-api.ambitiousocean-b7255ba5.northeurope.azurecontainerapps.io/api"
 
 interface ApiOptions {
   method?: string
@@ -62,6 +62,7 @@ export interface AuthResponse {
 export interface UserInfo {
   id: string
   fullName: string
+  username?: string
   email: string
   role: string
   kycStatus: string | null
@@ -285,6 +286,24 @@ export const authApi = {
   login: (data: { email: string; password: string }) =>
     api.post<AuthResponse>("/auth/login", data),
   me: () => api.get<UserInfo>("/auth/me"),
+  searchUsers: (query: string, limit = 10) =>
+    api.get<UsernameSearchResult[]>(`/auth/search?q=${encodeURIComponent(query)}&limit=${limit}`),
+  checkUsername: (username: string) =>
+    api.post<UsernameCheckResponse>("/auth/check-username", { username }),
+}
+
+export interface UsernameSearchResult {
+  id: string
+  fullName: string
+  username: string
+  avatarUrl: string | null
+  role: string
+}
+
+export interface UsernameCheckResponse {
+  isAvailable: boolean
+  username: string
+  suggestion: string | null
 }
 
 export interface LoanOverview {

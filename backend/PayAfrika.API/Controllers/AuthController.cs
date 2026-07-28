@@ -57,6 +57,20 @@ public class AuthController : ControllerBase
         return Ok(user);
     }
 
+    [HttpGet("search")]
+    public async Task<ActionResult<List<UsernameSearchResult>>> SearchUsers([FromQuery] string q, [FromQuery] int limit = 10)
+    {
+        var results = await _authService.SearchUsersAsync(q, limit);
+        return Ok(results);
+    }
+
+    [HttpPost("check-username")]
+    public async Task<ActionResult<UsernameCheckResponse>> CheckUsername([FromBody] UsernameCheckRequest request)
+    {
+        var result = await _authService.CheckUsernameAsync(request.Username);
+        return Ok(result);
+    }
+
     [HttpPost("verify-email")]
     public async Task<ActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
     {

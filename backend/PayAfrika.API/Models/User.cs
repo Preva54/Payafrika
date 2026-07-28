@@ -9,6 +9,9 @@ public class User
     [Required, MaxLength(100)]
     public string FullName { get; set; } = string.Empty;
 
+    [MaxLength(35)]
+    public string? Username { get; set; }
+
     [Required, MaxLength(200)]
     public string Email { get; set; } = string.Empty;
 

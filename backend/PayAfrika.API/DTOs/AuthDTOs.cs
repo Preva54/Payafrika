@@ -43,6 +43,7 @@ public class UserInfo
 {
     public Guid Id { get; set; }
     public string FullName { get; set; } = string.Empty;
+    public string? Username { get; set; }
     public string Email { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public string? KYCStatus { get; set; }
@@ -72,4 +73,26 @@ public class VerifyEmailRequest
 
     [Required]
     public string Code { get; set; } = string.Empty;
+}
+
+public class UsernameSearchResult
+{
+    public Guid Id { get; set; }
+    public string FullName { get; set; } = string.Empty;
+    public string Username { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+    public string Role { get; set; } = string.Empty;
+}
+
+public class UsernameCheckRequest
+{
+    [Required, MaxLength(30)]
+    public string Username { get; set; } = string.Empty;
+}
+
+public class UsernameCheckResponse
+{
+    public bool IsAvailable { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string? Suggestion { get; set; }
 }

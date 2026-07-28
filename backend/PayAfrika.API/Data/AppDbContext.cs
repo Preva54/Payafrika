@@ -103,6 +103,7 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasIndex(u => u.Email).IsUnique();
+            entity.HasIndex(u => u.Username).IsUnique();
             entity.HasOne(u => u.Wallet)
                   .WithOne(w => w.User)
                   .HasForeignKey<Wallet>(w => w.UserId);

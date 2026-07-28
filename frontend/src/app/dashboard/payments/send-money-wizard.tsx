@@ -1,10 +1,10 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Check, ArrowLeft, ArrowRight, User, Building2, Handshake, Phone, Mail,
-  Download, Share2, Printer, CheckCircle2,
+  Download, Share2, Printer, CheckCircle2, Search, Loader2,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
-import { paymentsApi, type ExchangeRate } from "@/lib/api"
+import { paymentsApi, authApi, type ExchangeRate, type UsernameSearchResult } from "@/lib/api"
 
 const CURRENCY_FLAGS: Record<string, string> = {
   ZAR: "🇿🇦", USD: "🇺🇸", EUR: "🇪🇺", GBP: "🇬🇧", NGN: "🇳🇬", KES: "🇰🇪",
@@ -48,12 +48,18 @@ export function SendMoneyWizard({ onClose, rates }: { onClose: () => void; rates
   const [recipientBank, setRecipientBank] = useState("")
   const [recipientPhone, setRecipientPhone] = useState("")
   const [recipientEmail, setRecipientEmail] = useState("")
+  const [selectedRecipient, setSelectedRecipient] = useState<UsernameSearchResult | null>(null)
+  const [searchQuery, setSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState<UsernameSearchResult[]>([])
+  const [searching, setSearching] = useState(false)
+  const [showDropdown, setShowDropdown] = useState(false)
   const [amount, setAmount] = useState("")
   const [currency, setCurrency] = useState("ZAR")
   const [reference, setReference] = useState("")
   const [note, setNote] = useState("")
   const [sending, setSending] = useState(false)
   const [txId, setTxId] = useState("")
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null)
 
   const apiRates = (rates ?? DEFAULT_RATES).filter(r => ["ZAR", "USD", "EUR", "GBP", "NGN", "KES"].includes(r.code))
   const availableCurrencies = apiRates.length > 0 ? apiRates : DEFAULT_RATES
@@ -63,14 +69,41 @@ export function SendMoneyWizard({ onClose, rates }: { onClose: () => void; rates
   const fee = parseFloat(amount || "0") * 0.015
   const total = parseFloat(amount || "0") + fee
 
+  useEffect(() => {
+    if (searchQuery.length < 2) {
+      setSearchResults([])
+      setShowDropdown(false)
+      return
+    }
+    if (searchTimeout.current) clearTimeout(searchTimeout.current)
+    searchTimeout.current = setTimeout(async () => {
+      setSearching(true)
+      try {
+        const results = await authApi.searchUsers(searchQuery, 5)
+        setSearchResults(results)
+        setShowDropdown(results.length > 0)
+      } catch {}
+      setSearching(false)
+    }, 300)
+    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current) }
+  }, [searchQuery])
+
   const canProceed = () => {
-    if (step === 1) return recipientType !== ""
+    if (step === 1) {
+      if (recipientType === "payafrika") return selectedRecipient !== null || recipientName !== ""
+      if (recipientType === "bank") return recipientBank !== "" && recipientAccount !== ""
+      if (recipientType === "merchant") return recipientName !== ""
+      if (recipientType === "phone") return recipientPhone !== ""
+      if (recipientType === "email") return recipientEmail !== ""
+      return recipientType !== ""
+    }
     if (step === 2) return currency !== ""
     if (step === 3) return parseFloat(amount) > 0
     return true
   }
 
   const getRecipientDisplay = () => {
+    if (selectedRecipient) return selectedRecipient.fullName
     switch (recipientType) {
       case "payafrika": return recipientName || "PayAfrika User"
       case "bank": return `${recipientBank || "Bank"} - ${recipientAccount || "Account"}`
@@ -132,7 +165,7 @@ export function SendMoneyWizard({ onClose, rates }: { onClose: () => void; rates
                   return (
                     <button
                       key={rt.id}
-                      onClick={() => setRecipientType(rt.id)}
+                      onClick={() => { setRecipientType(rt.id); setSelectedRecipient(null); setSearchQuery(""); setRecipientName(""); setRecipientAccount(""); setRecipientBank(""); setRecipientPhone(""); setRecipientEmail("") }}
                       className={`p-4 rounded-xl border-2 text-left transition-all ${recipientType === rt.id ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`}
                     >
                       <div className={`h-10 w-10 rounded-lg bg-gradient-to-br ${rt.color} flex items-center justify-center mb-2`}>
@@ -146,9 +179,53 @@ export function SendMoneyWizard({ onClose, rates }: { onClose: () => void; rates
               </div>
 
               {recipientType === "payafrika" && (
-                <div className="space-y-2 mt-4">
-                  <Label>PayAfrika Username or Phone</Label>
-                  <Input placeholder="@username or phone number" value={recipientName} onChange={e => setRecipientName(e.target.value)} />
+                <div className="space-y-2 mt-4 relative">
+                  <Label>Search by Username or Name</Label>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="@payafrika.peter or Peter"
+                      value={searchQuery}
+                      onChange={e => { setSearchQuery(e.target.value); setSelectedRecipient(null) }}
+                      className="pl-9"
+                      onFocus={() => searchResults.length > 0 && setShowDropdown(true)}
+                    />
+                    {searching && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />}
+                  </div>
+
+                  {showDropdown && searchResults.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 rounded-xl border border-border bg-background shadow-lg overflow-hidden">
+                      {searchResults.map(user => (
+                        <button
+                          key={user.id}
+                          onClick={() => { setSelectedRecipient(user); setSearchQuery(user.username); setShowDropdown(false); setRecipientName(user.fullName) }}
+                          className="w-full flex items-center gap-3 p-3 hover:bg-secondary/50 transition-colors text-left"
+                        >
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-sm font-bold shrink-0">
+                            {user.fullName.split(" ").map(n => n[0]).join("")}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-sm truncate">{user.fullName}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{user.username}</p>
+                          </div>
+                          <Check className="h-4 w-4 text-accent ml-auto shrink-0" />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+
+                  {selectedRecipient && (
+                    <div className="flex items-center gap-3 p-3 rounded-xl bg-primary/5 border border-primary/20">
+                      <div className="h-10 w-10 rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center text-sm font-bold">
+                        {selectedRecipient.fullName.split(" ").map(n => n[0]).join("")}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="font-medium text-sm">{selectedRecipient.fullName}</p>
+                        <p className="text-xs text-muted-foreground font-mono">{selectedRecipient.username}</p>
+                      </div>
+                      <Check className="h-5 w-5 text-accent" />
+                    </div>
+                  )}
                 </div>
               )}
               {recipientType === "bank" && (
@@ -268,6 +345,7 @@ export function SendMoneyWizard({ onClose, rates }: { onClose: () => void; rates
               <div className="space-y-3">
                 {[
                   { label: "Recipient", value: getRecipientDisplay() },
+                  selectedRecipient ? { label: "Username", value: selectedRecipient.username } : null,
                   { label: "Recipient Type", value: RECIPIENT_TYPES.find(r => r.id === recipientType)?.label || "" },
                   { label: "Amount", value: `R ${parseFloat(amount || "0").toFixed(2)}` },
                   { label: "Fee", value: `R ${fee.toFixed(2)}` },
@@ -276,10 +354,10 @@ export function SendMoneyWizard({ onClose, rates }: { onClose: () => void; rates
                   { label: "Total", value: `R ${total.toFixed(2)}` },
                   { label: "Currency", value: `${CURRENCY_FLAGS[currency]} ${currency}` },
                   { label: "Estimated arrival", value: "1-3 business days" },
-                ].filter(item => item.value).map(({ label, value }) => (
-                  <div key={label} className="flex justify-between py-2 text-sm border-b border-border last:border-0">
-                    <span className="text-muted-foreground">{label}</span>
-                    <span className="font-medium text-right">{value}</span>
+                ].filter(Boolean).map((item) => (
+                  <div key={item!.label} className="flex justify-between py-2 text-sm border-b border-border last:border-0">
+                    <span className="text-muted-foreground">{item!.label}</span>
+                    <span className="font-medium text-right">{item!.value}</span>
                   </div>
                 ))}
               </div>
@@ -294,6 +372,7 @@ export function SendMoneyWizard({ onClose, rates }: { onClose: () => void; rates
               <h3 className="text-2xl font-bold">Payment Sent!</h3>
               <p className="text-sm text-muted-foreground max-w-sm mx-auto">
                 Your transfer to {getRecipientDisplay()} has been initiated successfully.
+                {selectedRecipient && <span className="block mt-1 font-mono text-xs">{selectedRecipient.username}</span>}
               </p>
               <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-secondary">
                 <span className="text-xs text-muted-foreground">Transaction ID</span>

@@ -33,7 +33,7 @@ import { SendMoneyWizard } from "./send-money-wizard"
 import { DashboardPaymentsTable } from "./payments-table"
 import {
   dashboardApi, beneficiariesApi, scheduledPaymentsApi, exchangeRatesApi,
-  walletApi, type Transaction, type Beneficiary, type SchedulePayment,
+  walletApi, authApi, type Transaction, type Beneficiary, type SchedulePayment,
   type ExchangeRate, type WalletResponse, type QRResponse,
 } from "@/lib/api"
 
@@ -525,10 +525,13 @@ function PaymentHistorySection({ transactions }: { transactions: Transaction[] }
 function ReceiveMoneySection({ wallet }: { wallet: WalletResponse | null }) {
   const [copied, setCopied] = useState("")
   const [showQR, setShowQR] = useState(false)
-  const [qrData, setQrData] = useState<QRResponse | null>(null)
+  const [username, setUsername] = useState("@payafrika.user")
+
+  useEffect(() => {
+    authApi.me().then(u => { if (u.username) setUsername(u.username) }).catch(() => {})
+  }, [])
 
   const walletId = wallet?.id || "WALLET-XXXX-XXXX"
-  const username = "@user"
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
@@ -971,7 +974,12 @@ function ReceiveMoneyModal({ open, onClose, wallet }: {
   open: boolean; onClose: () => void; wallet: WalletResponse | null
 }) {
   const [copied, setCopied] = useState("")
+  const [username, setUsername] = useState("@payafrika.user")
   const walletId = wallet?.id || "WALLET-XXXX-XXXX"
+
+  useEffect(() => {
+    if (open) authApi.me().then(u => { if (u.username) setUsername(u.username) }).catch(() => {})
+  }, [open])
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
@@ -994,9 +1002,9 @@ function ReceiveMoneyModal({ open, onClose, wallet }: {
           </div>
 
           {[
+            { label: "Username", value: username, key: "username" },
             { label: "Wallet ID", value: walletId, key: "wallet" },
-            { label: "Username", value: "@user", key: "username" },
-            { label: "Payment Link", value: `payafrika.com/pay/@user`, key: "link" },
+            { label: "Payment Link", value: `payafrika.com/pay/${username}`, key: "link" },
           ].map(item => (
             <div key={item.key} className="flex items-center justify-between p-3 rounded-xl bg-secondary/50">
               <div>
