@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { motion } from "framer-motion"
-import { Users, HandCoins, CreditCard, TrendingUp, DollarSign, Activity, ArrowUp, ArrowDown, RefreshCw } from "lucide-react"
+import { AlertTriangle, Users, HandCoins, CreditCard, TrendingUp, DollarSign, Activity, ArrowUp, ArrowDown, RefreshCw } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -12,14 +12,16 @@ import { adminApi, type AdminDashboard } from "@/lib/api"
 export default function AdminDashboardPage() {
   const [data, setData] = useState<AdminDashboard | null>(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState("")
 
   const fetchData = async () => {
     setLoading(true)
+    setError("")
     try {
       const result = await adminApi.dashboard()
       setData(result)
     } catch {
-      // handled by auth guard
+      setError("Failed to load dashboard data")
     } finally {
       setLoading(false)
     }
@@ -39,6 +41,19 @@ export default function AdminDashboardPage() {
             <Card key={i}><CardContent className="p-6"><Skeleton className="h-12 w-24" /><Skeleton className="h-4 w-16 mt-2" /></CardContent></Card>
           ))}
         </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 text-center">
+        <AlertTriangle className="w-12 h-12 text-red-400 mb-4" />
+        <p className="text-lg font-medium text-red-400">{error}</p>
+        <p className="text-sm text-muted-foreground mt-1">Try refreshing the page or check your connection</p>
+        <Button variant="outline" size="sm" className="mt-4" onClick={fetchData}>
+          <RefreshCw className="mr-2 h-4 w-4" />Retry
+        </Button>
       </div>
     )
   }

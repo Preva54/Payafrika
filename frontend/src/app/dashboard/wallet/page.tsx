@@ -513,18 +513,17 @@ export default function WalletPage() {
                   <CardHeader><CardTitle>Live Exchange Rates</CardTitle><CardDescription>Updated in real-time</CardDescription></CardHeader>
                   <CardContent>
                     <div className="space-y-2">
-                      {["ZAR/USD", "ZAR/EUR", "ZAR/GBP", "USD/EUR", "USD/GBP"].map(pair => {
-                        const [from, to] = pair.split("/")
-                        const rate = exchageRates.find(r => r.from === from && r.to === to)
+                      {(exchageRates.length > 0 ? exchageRates : []).map(rate => {
+                        const pair = `${rate.from}/${rate.to}`
                         return (
                           <div key={pair} className="flex items-center justify-between rounded-lg p-3 hover:bg-muted/50 transition-colors">
                             <div className="flex items-center gap-2">
-                              <span>{CURRENCY_FLAGS[from]}</span>
+                              <span>{CURRENCY_FLAGS[rate.from]}</span>
                               <span className="text-sm font-medium">{pair}</span>
                             </div>
                             <div className="text-right">
-                              <p className="text-sm font-mono">{rate ? rate.rate.toFixed(4) : "---"}</p>
-                              <p className="text-[10px] text-muted-foreground">Spread: {rate ? rate.spread.toFixed(4) : "---"}</p>
+                              <p className="text-sm font-mono">{rate.rate.toFixed(4)}</p>
+                              <p className="text-[10px] text-muted-foreground">Spread: {rate.spread.toFixed(4)}</p>
                             </div>
                           </div>
                         )

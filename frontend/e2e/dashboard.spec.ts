@@ -1,9 +1,13 @@
 import { test, expect } from "@playwright/test"
 
+const CURRENCY_WALLETS = [
+  { currency: "ZAR", flag: "\uD83C\uDDFF\uD83C\uDDE6", name: "South African Rand", balance: 124850, availableBalance: 124850, reservedBalance: 0, zarValue: 124850, changePercent: 0.5, miniGraph: [100, 102, 101, 103, 105, 104, 106] },
+  { currency: "USD", flag: "\uD83C\uDDFA\uD83C\uDDF8", name: "US Dollar", balance: 540, availableBalance: 540, reservedBalance: 0, zarValue: 9720, changePercent: 0.2, miniGraph: [100, 99, 101, 102, 100, 101, 102] },
+]
+
 test.describe("Dashboard", () => {
   test.describe.configure({ retries: 2 })
   test.beforeEach(async ({ page }) => {
-    // Set up API route interceptors BEFORE any navigation
     await page.route("**/api/auth/me", async (route) => {
       await route.fulfill({
         status: 200,
@@ -22,6 +26,30 @@ test.describe("Dashboard", () => {
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({ balance: 124850.0 }),
+      })
+    })
+    await page.route("**/api/wallet/overview", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          totalBalance: 124850,
+          availableBalance: 124850,
+          pendingBalance: 2000,
+          reservedBalance: 1550,
+          portfolioValue: 124850,
+          supportedCurrencies: 2,
+          monthlyCashFlow: 5000,
+          monthlyIncome: 25000,
+          monthlySpending: 20000,
+        }),
+      })
+    })
+    await page.route("**/api/wallet/balances", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(CURRENCY_WALLETS),
       })
     })
     await page.route("**/api/wallet/transactions", async (route) => {
@@ -44,55 +72,66 @@ test.describe("Dashboard", () => {
         ]),
       })
     })
+    await page.route("**/api/wallet/exchange-rates", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([
+          { from: "ZAR", to: "USD", rate: 18.5, spread: 0.21, lastUpdated: new Date().toISOString() },
+        ]),
+      })
+    })
+    await page.route("**/api/wallet/notifications", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify([]),
+      })
+    })
+    await page.addInitScript(() => {
+      localStorage.setItem("token", "fake-test-token")
+    })
   })
 
   test("renders welcome message and stats", async ({ page }) => {
-    await page.goto("/auth/login", { waitUntil: "domcontentloaded" })
-    await page.evaluate(() => localStorage.setItem("token", "fake-test-token"))
     await page.goto("/dashboard", { waitUntil: "networkidle" })
 
-    await expect(page.getByText(/welcome back/i)).toBeVisible()
-    await expect(page.getByText("Wallet Balance")).toBeVisible()
-    await expect(page.getByRole("heading", { name: "Total Spent" })).toBeVisible()
-    await expect(page.getByRole("heading", { name: "Active Loans" })).toBeVisible()
-    await expect(page.getByText("Next Payment")).toBeVisible()
+    await expect(page.getByText(/good (morning|afternoon|evening)/i)).toBeVisible()
+    await expect(page.getByText("Total Portfolio")).toBeVisible()
+    await expect(page.getByText("Available Balance")).toBeVisible()
+    await expect(page.getByText("Pending Balance")).toBeVisible()
+    await expect(page.getByText("Reserved Balance")).toBeVisible()
   })
 
   test("displays wallet balance", async ({ page }) => {
-    await page.goto("/auth/login", { waitUntil: "domcontentloaded" })
-    await page.evaluate(() => localStorage.setItem("token", "fake-test-token"))
     await page.goto("/dashboard", { waitUntil: "networkidle" })
 
-    await expect(page.getByText(/R\s*124/).first()).toBeVisible()
+    await expect(page.getByText(/124[^\d]*850[^\d]*\d/).first()).toBeVisible()
   })
 
   test("shows recent transactions section", async ({ page }) => {
-    await page.goto("/auth/login", { waitUntil: "domcontentloaded" })
-    await page.evaluate(() => localStorage.setItem("token", "fake-test-token"))
     await page.goto("/dashboard", { waitUntil: "networkidle" })
 
     await expect(page.getByRole("heading", { name: "Recent Transactions" })).toBeVisible()
-    await expect(page.getByText("Loan Disbursement")).toBeVisible()
-    await expect(page.getByText("Cross-Border Payment")).toBeVisible()
+    await expect(page.getByText("Deposit").first()).toBeVisible()
+    await expect(page.getByText("Payment").first()).toBeVisible()
+    await expect(page.getByText("Withdrawal")).toBeVisible()
   })
 
-  test("shows KYC status section", async ({ page }) => {
-    await page.goto("/auth/login", { waitUntil: "domcontentloaded" })
-    await page.evaluate(() => localStorage.setItem("token", "fake-test-token"))
+  test("shows quick actions", async ({ page }) => {
     await page.goto("/dashboard", { waitUntil: "networkidle" })
 
-    await expect(page.getByRole("heading", { name: "KYC Status" })).toBeVisible()
-    await expect(page.getByText("Verification Complete")).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Quick Actions" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Deposit" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Withdraw" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Exchange" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "Transfer" })).toBeVisible()
   })
 
   test("transaction status badges are rendered", async ({ page }) => {
-    await page.goto("/auth/login", { waitUntil: "domcontentloaded" })
-    await page.evaluate(() => localStorage.setItem("token", "fake-test-token"))
     await page.goto("/dashboard", { waitUntil: "networkidle" })
 
-    const badges = page.getByText("completed")
-    const count = await badges.count()
-    expect(count).toBeGreaterThanOrEqual(1)
+    await expect(page.getByText("completed")).not.toHaveCount(0)
   })
 })
 
@@ -106,23 +145,30 @@ test.describe("Business Dashboard", () => {
 
 test.describe("Admin Panel", () => {
   test.describe.configure({ retries: 2 })
-  test("renders admin dashboard", async ({ page }) => {
-    await page.goto("/auth/login", { waitUntil: "domcontentloaded" })
-    await page.evaluate(() => {
+  test.beforeEach(async ({ page }) => {
+    await page.route("**/api/admin/dashboard", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          totalRevenue: 500000, totalUsers: 1500, totalLoans: 300, pendingLoans: 25,
+          totalTransactions: 12000, activeUsers: 800,
+        }),
+      })
+    })
+    await page.addInitScript(() => {
       localStorage.setItem("token", "fake-admin-token")
       sessionStorage.setItem("admin_user", JSON.stringify({ email: "admin@example.com", name: "Admin User", role: "superadmin" }))
     })
+  })
+
+  test("renders admin dashboard", async ({ page }) => {
     await page.goto("/admin", { waitUntil: "networkidle" })
 
     await expect(page.getByRole("heading", { name: "Admin Dashboard" })).toBeVisible()
   })
 
   test("sidebar navigation is present", async ({ page }) => {
-    await page.goto("/auth/login", { waitUntil: "domcontentloaded" })
-    await page.evaluate(() => {
-      localStorage.setItem("token", "fake-admin-token")
-      sessionStorage.setItem("admin_user", JSON.stringify({ email: "admin@example.com", name: "Admin User", role: "superadmin" }))
-    })
     await page.goto("/admin", { waitUntil: "networkidle" })
 
     await expect(page.getByRole("link", { name: "Dashboard" }).first()).toBeVisible()
