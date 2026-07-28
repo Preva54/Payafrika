@@ -1260,6 +1260,9 @@ using (var scope = app.Services.CreateScope())
             ""ExpiresAt"" TIMESTAMPTZ NULL,
             ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""Username"" VARCHAR(35) NULL;
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Users_Username"" ON ""Users""(""Username"") WHERE ""Username"" IS NOT NULL;
     ");
 
     // ─── Seed Default Roles & Permissions ──────────────────────
