@@ -31,9 +31,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table"
 import { walletApi, type WalletResponse, type WalletOverviewResponse, type CurrencyWalletResponse, type WalletAnalyticsResponse, type SpendingInsightResponse, type LinkedBankResponse, type WalletNotificationResponse, type SecurityInfoResponse, type CardResponse, type ExchangeRateResponse, type QRResponse, type Transaction } from "@/lib/api"
-import DepositFundsSection from "@/components/dashboard/deposit-funds-section"
-import WithdrawFundsSection from "@/components/dashboard/withdraw-funds-section"
-import ExchangeCurrencySection from "@/components/dashboard/exchange-currency-section"
+import DepositDialog from "@/components/dashboard/deposit-dialog"
+import WithdrawDialog from "@/components/dashboard/withdraw-dialog"
+import ExchangeDialog from "@/components/dashboard/exchange-dialog"
 
 const CURRENCIES = ["ZAR", "USD", "EUR", "GBP", "NGN", "KES", "BTC", "ETH", "USDT"]
 const CURRENCY_FLAGS: Record<string, string> = {
@@ -90,10 +90,11 @@ export default function WalletPage() {
   const [copied, setCopied] = useState("")
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
 
-  const [depositOpen, setDepositOpen] = useState(false); const [depositAmount, setDepositAmount] = useState(""); const [depositCurrency, setDepositCurrency] = useState("ZAR"); const [depositing, setDepositing] = useState(false)
-  const [withdrawOpen, setWithdrawOpen] = useState(false); const [withdrawAmount, setWithdrawAmount] = useState(""); const [withdrawCurrency, setWithdrawCurrency] = useState("ZAR"); const [withdrawing, setWithdrawing] = useState(false)
+  const [depositOpen, setDepositOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [transferOpen, setTransferOpen] = useState(false); const [transferAmount, setTransferAmount] = useState(""); const [transferFrom, setTransferFrom] = useState("ZAR"); const [transferTo, setTransferTo] = useState("USD"); const [transferring, setTransferring] = useState(false)
-  const [exchangeOpen, setExchangeOpen] = useState(false); const [exchangeAmount, setExchangeAmount] = useState(""); const [exchangeFrom, setExchangeFrom] = useState("ZAR"); const [exchangeTo, setExchangeTo] = useState("USD"); const [exchanging, setExchanging] = useState(false)
+  const [exchangeOpen, setExchangeOpen] = useState(false)
+  const [exchangeAmount, setExchangeAmount] = useState(""); const [exchangeFrom, setExchangeFrom] = useState("ZAR"); const [exchangeTo, setExchangeTo] = useState("USD"); const [exchanging, setExchanging] = useState(false); const [depositCurrency, setDepositCurrency] = useState("ZAR"); const [withdrawCurrency, setWithdrawCurrency] = useState("ZAR")
   const [qrOpen, setQrOpen] = useState(false); const [qrData, setQrData] = useState<QRResponse | null>(null)
   const [bankOpen, setBankOpen] = useState(false); const [bankName, setBankName] = useState(""); const [bankAccount, setBankAccount] = useState(""); const [bankAccountName, setBankAccountName] = useState(""); const [linking, setLinking] = useState(false)
 
@@ -109,23 +110,15 @@ export default function WalletPage() {
 
   useEffect(() => { fetchAll() }, [fetchAll])
 
-  const handleDeposit = async () => {
-    const amt = parseFloat(depositAmount); if (isNaN(amt) || amt <= 0) return
-    setDepositing(true); try { await walletApi.deposit(amt, depositCurrency); setDepositOpen(false); setDepositAmount(""); fetchAll() } catch {} finally { setDepositing(false) }
+  const handleExchange = async () => {
+    const amt = parseFloat(exchangeAmount); if (isNaN(amt) || amt <= 0) return
+    setExchanging(true); try { await walletApi.exchange(amt, exchangeFrom, exchangeTo); setExchangeAmount(""); fetchAll() } catch {} finally { setExchanging(false) }
   }
-  const handleWithdraw = async () => {
-    const amt = parseFloat(withdrawAmount); if (isNaN(amt) || amt <= 0) return
-    setWithdrawing(true); try { await walletApi.withdraw(amt, withdrawCurrency); setWithdrawOpen(false); setWithdrawAmount(""); fetchAll() } catch {} finally { setWithdrawing(false) }
-  }
+
   const handleTransfer = async () => {
     const amt = parseFloat(transferAmount); if (isNaN(amt) || amt <= 0) return
     setTransferring(true); try { await walletApi.transfer(amt, transferFrom, transferTo); setTransferOpen(false); setTransferAmount(""); fetchAll() } catch {} finally { setTransferring(false) }
   }
-  const handleExchange = async () => {
-    const amt = parseFloat(exchangeAmount); if (isNaN(amt) || amt <= 0) return
-    setExchanging(true); try { await walletApi.exchange(amt, exchangeFrom, exchangeTo); setExchangeOpen(false); setExchangeAmount(""); fetchAll() } catch {} finally { setExchanging(false) }
-  }
-
   const handleCopy = (text: string, id: string) => { navigator.clipboard.writeText(text); setCopied(id); setTimeout(() => setCopied(""), 2000) }
 
   const netWorth = overview?.totalBalance ?? 0
@@ -145,55 +138,11 @@ export default function WalletPage() {
 
   const commonDialogs = (
     <>
-      <Dialog open={depositOpen} onOpenChange={setDepositOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Deposit Funds</DialogTitle><DialogDescription>Add money to your wallet</DialogDescription></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Amount</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R</span>
-                <Input type="number" min="1" placeholder="0.00" className="pl-8 text-lg" value={depositAmount} onChange={e => setDepositAmount(e.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Currency</Label>
-              <Select value={depositCurrency} onValueChange={setDepositCurrency}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{CURRENCY_FLAGS[c]} {c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <Button variant="gradient" className="w-full" disabled={depositing} onClick={handleDeposit}>
-              {depositing ? "Processing..." : `Deposit ${formatCurrency(parseFloat(depositAmount || "0"), depositCurrency)}`}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <DepositDialog open={depositOpen} onClose={() => setDepositOpen(false)} onSuccess={fetchAll} />
 
-      <Dialog open={withdrawOpen} onOpenChange={setWithdrawOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Withdraw Funds</DialogTitle><DialogDescription>Send money to your bank account</DialogDescription></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Amount</Label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">R</span>
-                <Input type="number" min="1" placeholder="0.00" className="pl-8 text-lg" value={withdrawAmount} onChange={e => setWithdrawAmount(e.target.value)} />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label>Currency</Label>
-              <Select value={withdrawCurrency} onValueChange={setWithdrawCurrency}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{CURRENCY_FLAGS[c]} {c}</SelectItem>)}</SelectContent>
-              </Select>
-            </div>
-            <Button variant="gradient" className="w-full" disabled={withdrawing} onClick={handleWithdraw}>
-              {withdrawing ? "Processing..." : `Withdraw ${formatCurrency(parseFloat(withdrawAmount || "0"), withdrawCurrency)}`}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <WithdrawDialog open={withdrawOpen} onClose={() => setWithdrawOpen(false)} onSuccess={fetchAll} />
+
+      <ExchangeDialog open={exchangeOpen} onClose={() => setExchangeOpen(false)} onSuccess={fetchAll} />
 
       <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
         <DialogContent className="sm:max-w-md">
@@ -221,41 +170,6 @@ export default function WalletPage() {
             </div>
             <Button variant="gradient" className="w-full" disabled={transferring} onClick={handleTransfer}>
               {transferring ? "Processing..." : "Transfer"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={exchangeOpen} onOpenChange={setExchangeOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader><DialogTitle>Exchange Currency</DialogTitle><DialogDescription>Convert between currencies at live rates</DialogDescription></DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label>Amount</Label>
-              <Input type="number" min="1" placeholder="0.00" className="text-lg" value={exchangeAmount} onChange={e => setExchangeAmount(e.target.value)} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>From</Label>
-                <Select value={exchangeFrom} onValueChange={setExchangeFrom}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{CURRENCY_FLAGS[c]} {c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>To</Label>
-                <Select value={exchangeTo} onValueChange={setExchangeTo}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CURRENCIES.map(c => <SelectItem key={c} value={c}>{CURRENCY_FLAGS[c]} {c}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="rounded-lg bg-muted p-3 text-sm">
-              <div className="flex justify-between"><span>Rate</span><span className="font-mono">1 {exchangeFrom} = --- {exchangeTo}</span></div>
-              <div className="flex justify-between mt-1"><span>Fee (0.5%)</span><span className="font-mono">{formatCurrency(parseFloat(exchangeAmount || "0") * 0.005)}</span></div>
-            </div>
-            <Button variant="gradient" className="w-full" disabled={exchanging} onClick={handleExchange}>
-              {exchanging ? "Processing..." : "Exchange"}
             </Button>
           </div>
         </DialogContent>
@@ -430,12 +344,6 @@ export default function WalletPage() {
                   <QrCode className="h-5 w-5" /><span className="text-sm">Receive</span>
                 </Button>
               </div>
-
-              <DepositFundsSection />
-
-              <WithdrawFundsSection />
-
-              <ExchangeCurrencySection />
 
               {insights.length > 0 && (
                 <div className="grid gap-3">
