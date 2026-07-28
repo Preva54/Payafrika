@@ -343,7 +343,7 @@ function BillsAndUtilities() {
     { label: "Electricity", icon: Zap, color: "from-yellow-500 to-yellow-600" },
     { label: "Water", icon: Droplets, color: "from-cyan-500 to-cyan-600" },
     { label: "TV", icon: Tv, color: "from-purple-500 to-purple-600" },
-    { label: "Internet", icon: WifiIcon, color: "from-indigo-500 to-indigo-600" },
+    { label: "Internet", icon: Wifi, color: "from-indigo-500 to-indigo-600" },
     { label: "School Fees", icon: GraduationCap, color: "from-orange-500 to-orange-600" },
     { label: "Gov. Payments", icon: Landmark, color: "from-red-500 to-red-600" },
   ]
@@ -701,7 +701,7 @@ function BillsSection({ scheduled }: { scheduled: SchedulePayment[] }) {
     { label: "Electricity", icon: Zap, color: "from-yellow-500 to-yellow-600" },
     { label: "Water", icon: Droplets, color: "from-cyan-500 to-cyan-600" },
     { label: "TV", icon: Tv, color: "from-purple-500 to-purple-600" },
-    { label: "Internet", icon: WifiIcon, color: "from-indigo-500 to-indigo-600" },
+    { label: "Internet", icon: Wifi, color: "from-indigo-500 to-indigo-600" },
     { label: "School Fees", icon: GraduationCap, color: "from-orange-500 to-orange-600" },
     { label: "Gov. Payments", icon: Landmark, color: "from-red-500 to-red-600" },
   ]
