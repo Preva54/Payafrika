@@ -1,11 +1,11 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS builder
 WORKDIR /app
 
-COPY PayAfrika.API.csproj ./PayAfrika.API/
-RUN dotnet restore ./PayAfrika.API/PayAfrika.API.csproj
+COPY PayAfrika.API.csproj .
+RUN dotnet restore PayAfrika.API.csproj
 
 COPY . .
-RUN dotnet publish ./PayAfrika.API/PayAfrika.API.csproj -c Release -o out
+RUN dotnet publish PayAfrika.API.csproj -c Release -o out
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS runner
 WORKDIR /app
