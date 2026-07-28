@@ -4,14 +4,12 @@ import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Send, ArrowDownLeft, Repeat, Building2, CreditCard, Globe, QrCode, BarChart3,
-  Clock, Users, Zap, Plug, Tv, Wifi, GraduationCap, Landmark, Handshake,
+  Clock, Users, Zap, GraduationCap, Landmark, Handshake,
   Receipt, RefreshCw, ArrowUpRight, ArrowDownUp, DollarSign, Check, Copy,
-  CheckCircle2, XCircle, Loader2, ChevronRight, Download, Share2, Printer,
-  Wallet, Smartphone, Wifi as WifiIcon, Tv as TvIcon, Bus, FileText,
-  TrendingUp, Target, AlertTriangle, Ban, Bell, Search, Calendar, Filter,
-  ArrowRight, Banknote, PiggyBank, Globe2, CreditCard as CreditCardIcon,
-  Banknote as BanknoteIcon, Smartphone as SmartphoneIcon, Mail,
-  User, Building, Phone,
+  CheckCircle2, XCircle, Loader2, Download, Share2, Printer,
+  Wallet, Smartphone, Wifi, Tv, FileText,
+  Search, Calendar, Filter,
+  ArrowRight, Mail, User, Phone,
 } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
