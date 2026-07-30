@@ -218,6 +218,50 @@ public class WalletController : ControllerBase
         return Ok(new { fromAmount = request.Amount, toAmount = Math.Round(convertedAmount, 2), fromCurrency = request.FromCurrency, toCurrency = request.ToCurrency });
     }
 
+    [HttpPost("send-bank")]
+    public async Task<ActionResult<InitiateTransferResponse>> SendToBank([FromBody] InitiateTransferRequest request)
+    {
+        var userId = GetUserId();
+
+        if (request.Amount <= 0)
+            return BadRequest(new { error = "Amount must be positive." });
+
+        var wallet = await _db.Wallets.FirstAsync(w => w.UserId == userId);
+        if (wallet.Balance < request.Amount)
+            return BadRequest(new { error = "Insufficient balance." });
+
+        wallet.Balance -= request.Amount;
+        wallet.UpdatedAt = DateTime.UtcNow;
+
+        var refSeq = await _db.Transactions.CountAsync(t => t.UserId == userId) + 1;
+        var reference = $"TRF-{DateTime.UtcNow:yyyyMMdd}-{refSeq:D5}";
+
+        _db.Transactions.Add(new Transaction
+        {
+            UserId = userId,
+            Type = "transfer",
+            Amount = request.Amount,
+            Currency = request.Currency,
+            Status = "pending",
+            Description = request.Description ?? $"Transfer to {request.RecipientName}",
+            Reference = reference,
+        });
+
+        await _db.SaveChangesAsync();
+
+        return Ok(new InitiateTransferResponse
+        {
+            TransactionId = Guid.NewGuid().ToString(),
+            Reference = reference,
+            Amount = request.Amount,
+            Fee = Math.Round(request.Amount * 0.015m, 2),
+            Total = Math.Round(request.Amount * 1.015m, 2),
+            Currency = request.Currency,
+            Status = "pending",
+            EstimatedArrival = "1-3 business days",
+        });
+    }
+
     [HttpPost("exchange")]
     public async Task<ActionResult> Exchange([FromBody] ExchangeRequest request)
     {

@@ -66,6 +66,7 @@ const navSections: NavSection[] = [
     label: "System",
     items: [
       { label: "Settings", href: "/admin/settings", icon: Settings },
+  { label: "Transfer Config", href: "/admin/transfer-config", icon: CreditCard },
     ],
   },
 ]

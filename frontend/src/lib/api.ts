@@ -634,11 +634,109 @@ export const paymentsApi = {
 }
 
 export const beneficiariesApi = {
-  getAll: () => api.get<Beneficiary[]>("/beneficiaries"),
-  get: (id: string) => api.get<Beneficiary>(`/beneficiaries/${id}`),
-  create: (data: Partial<Beneficiary>) => api.post<Beneficiary>("/beneficiaries", data),
-  update: (id: string, data: Partial<Beneficiary>) => api.put<Beneficiary>(`/beneficiaries/${id}`, data),
-  delete: (id: string) => api.delete(`/beneficiaries/${id}`),
+   getAll: () => api.get<Beneficiary[]>("/beneficiaries"),
+   get: (id: string) => api.get<Beneficiary>(`/beneficiaries/${id}`),
+   create: (data: Partial<Beneficiary>) => api.post<Beneficiary>("/beneficiaries", data),
+   update: (id: string, data: Partial<Beneficiary>) => api.put<Beneficiary>(`/beneficiaries/${id}`, data),
+   delete: (id: string) => api.delete(`/beneficiaries/${id}`),
+}
+
+export interface Country {
+   id: string
+   name: string
+   code: string
+   currencyCode: string
+   currencySymbol?: string
+   isEnabled: boolean
+}
+
+export interface BankListResponse {
+   id: string
+   countryCode: string
+   name: string
+   code?: string
+}
+
+export interface BankVerificationResponse {
+   success: boolean
+   status: string
+   accountName?: string
+   bankName?: string
+   countryCode?: string
+   message?: string
+   verificationId?: string
+}
+
+export interface InitiateTransferRequest {
+   amount: number
+   currency: string
+   recipientName?: string
+   recipientType?: string
+   recipientCountryCode?: string
+   recipientBankName?: string
+   recipientAccountNumber?: string
+   recipientCurrency?: string
+   reference?: string
+   description?: string
+   beneficiaryId?: string
+}
+
+export interface InitiateTransferResponse {
+   transactionId: string
+   reference: string
+   amount: number
+   fee: number
+   total: number
+   currency: string
+   status: string
+   estimatedArrival?: string
+}
+
+export interface TransferSummaryResponse {
+   recipientName: string
+   recipientType: string
+   bankName: string
+   country: string
+   amount: number
+   currency: string
+   fee: number
+   exchangeRate: number
+   recipientAmount: number
+   total: number
+   estimatedArrival: string
+}
+
+export interface VerifyAccountRequest {
+   countryCode: string
+   bankCode: string
+   accountNumber: string
+}
+
+export const bankVerificationApi = {
+   verifyAccount: (data: VerifyAccountRequest) => api.post<BankVerificationResponse>("/bank-verification/verify", data),
+   getBanks: (countryCode: string) => api.get<BankListResponse[]>(`/bank-verification/banks/${countryCode}`),
+   getHistory: () => api.get<object[]>("/bank-verification/history"),
+}
+
+export const countriesApi = {
+   getAll: () => api.get<Country[]>("/countries"),
+   create: (data: Country) => api.post<Country>("/countries", data),
+   update: (id: string, data: Country) => api.put<Country>(`/countries/${id}`, data),
+   delete: (id: string) => api.delete(`/countries/${id}`),
+}
+
+export const banksApi = {
+   getAll: (countryCode?: string) => {
+      const params = countryCode ? `?countryCode=${countryCode}` : ""
+      return api.get<BankListResponse[]>(`/banks${params}`)
+   },
+   create: (data: BankListResponse) => api.post<BankListResponse>("/banks", data),
+   update: (id: string, data: BankListResponse) => api.put<BankListResponse>(`/banks/${id}`, data),
+   delete: (id: string) => api.delete(`/banks/${id}`),
+}
+
+export const transfersApi = {
+   initiate: (data: InitiateTransferRequest) => api.post<InitiateTransferResponse>("/wallet/send-bank", data),
 }
 
 export const scheduledPaymentsApi = {

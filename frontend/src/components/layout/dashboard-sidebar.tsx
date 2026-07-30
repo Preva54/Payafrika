@@ -6,7 +6,8 @@ import { cn } from "@/lib/utils"
 import { useAuthStore } from "@/stores/use-auth-store"
 import {
   LayoutDashboard, Wallet, ArrowLeftRight, HandCoins,
-  Bell, Settings, User, FileText, HelpCircle, LogOut, CreditCard, Shield, Repeat
+  Bell, Settings, User, FileText, HelpCircle, LogOut, CreditCard, Shield, Repeat,
+  UserCheck,
 } from "lucide-react"
 
 const customerLinks = [
@@ -17,6 +18,7 @@ const customerLinks = [
   { label: "Transactions", href: "/dashboard/transactions", icon: ArrowLeftRight },
   { label: "Loans", href: "/dashboard/loans", icon: HandCoins },
   { label: "Payments", href: "/dashboard/payments", icon: CreditCard },
+  { label: "Beneficiaries", href: "/dashboard/beneficiaries", icon: UserCheck },
   { label: "Notifications", href: "/dashboard/notifications", icon: Bell },
   { label: "Settings", href: "/dashboard/settings", icon: Settings },
   { label: "Profile", href: "/dashboard/profile", icon: User },

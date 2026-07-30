@@ -15,6 +15,9 @@ public class AppDbContext : DbContext
     public DbSet<ScheduledPayment> ScheduledPayments => Set<ScheduledPayment>();
     public DbSet<WalletBalance> WalletBalances => Set<WalletBalance>();
     public DbSet<LinkedBank> LinkedBanks => Set<LinkedBank>();
+    public DbSet<Country> Countries => Set<Country>();
+    public DbSet<Bank> Banks => Set<Bank>();
+    public DbSet<BankVerification> BankVerifications => Set<BankVerification>();
 
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
@@ -150,6 +153,23 @@ public class AppDbContext : DbContext
             entity.HasOne(lb => lb.User)
                   .WithMany(u => u.LinkedBanks)
                   .HasForeignKey(lb => lb.UserId);
+        });
+
+        modelBuilder.Entity<Country>(entity =>
+        {
+            entity.HasIndex(c => c.Code).IsUnique();
+        });
+
+        modelBuilder.Entity<Bank>(entity =>
+        {
+            entity.HasIndex(b => new { b.CountryCode, b.Code }).IsUnique();
+        });
+
+        modelBuilder.Entity<BankVerification>(entity =>
+        {
+            entity.HasOne(bv => bv.User)
+                  .WithMany(u => u.BankVerifications)
+                  .HasForeignKey(bv => bv.UserId);
         });
 
         modelBuilder.Entity<SupportTicket>(entity =>

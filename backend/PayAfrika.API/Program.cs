@@ -48,6 +48,7 @@ builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IAiInsightService, AiInsightService>();
 builder.Services.AddScoped<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<IFxAuditService, FxAuditService>();
+builder.Services.AddScoped<IBankVerificationService, BankVerificationService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.Configure<FlutterwaveSettings>(builder.Configuration.GetSection("Payment:Flutterwave"));
