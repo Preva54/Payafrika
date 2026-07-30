@@ -231,9 +231,41 @@ const [recipientType, setRecipientType] = useState("")
         </div>
       )}
 
-      <CardContent className="p-6">
-        <AnimatePresence mode="wait">
-          {!(verification?.success) && step === 2 && transferType === "bank" && (
+       <CardContent className="p-6">
+         <AnimatePresence mode="wait">
+           {step === 1 && (
+             <motion.div key="s1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+               <p className="text-sm font-medium text-muted-foreground mb-3">Choose how you want to send money</p>
+               <div className="grid grid-cols-1 gap-3">
+                 {[
+                   { id: "payafrika", label: "PayAfrika User", desc: "Send to another PayAfrika user", icon: User, color: "from-primary/10 to-primary/5" },
+                   { id: "bank", label: "Local Bank Transfer", desc: "Send to a bank account in your country", icon: Building2, color: "from-blue-500/10 to-blue-500/5" },
+                   { id: "international", label: "International Transfer", desc: "Send to a bank account worldwide", icon: Globe, color: "from-green-500/10 to-green-500/5" },
+                 ].map(rt => {
+                   const Icon = rt.icon
+                   return (
+                     <button
+                       key={rt.id}
+                       onClick={() => { setTransferType(rt.id); setStep(2) }}
+                       className="p-4 rounded-xl border-2 text-left transition-all hover:border-primary/50"
+                     >
+                       <div className="flex items-center gap-4">
+                         <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${rt.color} flex items-center justify-center shrink-0`}>
+                           <Icon className="h-6 w-6" />
+                         </div>
+                         <div>
+                           <p className="font-semibold text-sm">{rt.label}</p>
+                           <p className="text-xs text-muted-foreground mt-0.5">{rt.desc}</p>
+                         </div>
+                         <ArrowRight className="h-4 w-4 text-muted-foreground ml-auto" />
+                       </div>
+                     </button>
+                   )
+                 })}
+               </div>
+             </motion.div>
+           )}
+           {!(verification?.success) && step === 2 && transferType === "bank" && (
             <motion.div key="bank-select" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
               <div className="space-y-2">
                 <Label>Country</Label>
