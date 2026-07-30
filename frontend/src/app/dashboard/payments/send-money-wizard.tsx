@@ -35,7 +35,7 @@ const COUNTRY_FLAGS: Record<string, string> = {
 export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(1)
   const [transferType, setTransferType] = useState("")
-const [recipientType, setRecipientType] = useState("")
+  const [recipientType, setRecipientType] = useState("")
 
   const [searchQuery, setSearchQuery] = useState("")
   const [searchResults, setSearchResults] = useState<UsernameSearchResult[]>([])
@@ -85,23 +85,7 @@ const [recipientType, setRecipientType] = useState("")
   const fee = parseFloat(amount || "0") * 0.015
   const total = parseFloat(amount || "0") + fee
 
-useEffect(() => {
-    const fetchCountries = async () => {
-      try {
-        const data = await countriesApi.getAll()
-        setCountries(data || [])
-      } catch {
-        // If the API call fails, set some default countries for demo purposes
-        const defaultCountries: Country[] = [
-          { id: '1', name: 'South Africa', code: 'ZA', currencyCode: 'ZAR', isEnabled: true, currencySymbol: 'R' },
-          { id: '2', name: 'Nigeria', code: 'NG', currencyCode: 'NGN', isEnabled: true, currencySymbol: '₦' },
-          { id: '3', name: 'Kenya', code: 'KE', currencyCode: 'KES', isEnabled: true, currencySymbol: 'KSh' },
-          { id: '4', name: 'Ghana', code: 'GH', currencyCode: 'GHS', isEnabled: true, currencySymbol: 'GH₵' },
-          { id: '5', name: 'United States', code: 'US', currencyCode: 'USD', isEnabled: true, currencySymbol: '$' },
-        ]
-        setCountries(defaultCountries)
-      }
-    }
+  useEffect(() => {
     fetchCountries()
   }, [])
 
