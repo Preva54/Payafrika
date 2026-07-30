@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { useAuthStore } from "@/stores/use-auth-store"
 import { motion, AnimatePresence } from "framer-motion"
 import {
   Send, ArrowDownLeft, Repeat, Building2, CreditCard, Globe, QrCode, BarChart3,
@@ -525,11 +526,8 @@ function PaymentHistorySection({ transactions }: { transactions: Transaction[] }
 function ReceiveMoneySection({ wallet }: { wallet: WalletResponse | null }) {
   const [copied, setCopied] = useState("")
   const [showQR, setShowQR] = useState(false)
-  const [username, setUsername] = useState("@payafrika.user")
-
-  useEffect(() => {
-    authApi.me().then(u => { if (u.username) setUsername(u.username) }).catch(() => {})
-  }, [])
+  const { user } = useAuthStore()
+  const username = user?.username || ""
 
   const walletId = wallet?.id || "WALLET-XXXX-XXXX"
 
@@ -974,12 +972,9 @@ function ReceiveMoneyModal({ open, onClose, wallet }: {
   open: boolean; onClose: () => void; wallet: WalletResponse | null
 }) {
   const [copied, setCopied] = useState("")
-  const [username, setUsername] = useState("@payafrika.user")
+  const { user } = useAuthStore()
+  const username = user?.username || ""
   const walletId = wallet?.id || "WALLET-XXXX-XXXX"
-
-  useEffect(() => {
-    if (open) authApi.me().then(u => { if (u.username) setUsername(u.username) }).catch(() => {})
-  }, [open])
 
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text)
