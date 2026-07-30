@@ -63,8 +63,8 @@ export function SendMoneyWizard({ onClose, rates }: { onClose: () => void; rates
 
   const apiRates = (rates ?? DEFAULT_RATES).filter(r => ["ZAR", "USD", "EUR", "GBP", "NGN", "KES"].includes(r.code))
   const availableCurrencies = apiRates.length > 0 ? apiRates : DEFAULT_RATES
-  const selectedCurrency = availableCurrencies.find(c => c.code === currency)!
-  const rate = selectedCurrency.sell || 1
+  const selectedCurrency = availableCurrencies.find(c => c.code === currency) ?? availableCurrencies[0] ?? DEFAULT_RATES[0]
+  const rate = selectedCurrency?.sell || 1
   const convertedAmount = parseFloat(amount || "0") * rate
   const fee = parseFloat(amount || "0") * 0.015
   const total = parseFloat(amount || "0") + fee
