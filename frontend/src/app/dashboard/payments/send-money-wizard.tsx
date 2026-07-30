@@ -234,7 +234,7 @@ const [recipientType, setRecipientType] = useState("")
        <CardContent className="p-6">
          <AnimatePresence mode="wait">
            {step === 1 && (
-             <motion.div key="s1" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
+             <div key="s1" className="space-y-4">
                <p className="text-sm font-medium text-muted-foreground mb-3">Choose how you want to send money</p>
                <div className="grid grid-cols-1 gap-3">
                  {[
@@ -263,7 +263,7 @@ const [recipientType, setRecipientType] = useState("")
                    )
                  })}
                </div>
-             </motion.div>
+             </div>
            )}
            {!(verification?.success) && step === 2 && transferType === "bank" && (
             <motion.div key="bank-select" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
