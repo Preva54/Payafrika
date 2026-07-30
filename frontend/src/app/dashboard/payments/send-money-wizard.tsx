@@ -85,8 +85,24 @@ const [recipientType, setRecipientType] = useState("")
   const fee = parseFloat(amount || "0") * 0.015
   const total = parseFloat(amount || "0") + fee
 
-  useEffect(() => {
-    countriesApi.getAll().then(setCountries).catch(() => {})
+useEffect(() => {
+    const fetchCountries = async () => {
+      try {
+        const data = await countriesApi.getAll()
+        setCountries(data || [])
+      } catch {
+        // If the API call fails, set some default countries for demo purposes
+        const defaultCountries: Country[] = [
+          { id: '1', name: 'South Africa', code: 'ZA', currencyCode: 'ZAR', isEnabled: true, currencySymbol: 'R' },
+          { id: '2', name: 'Nigeria', code: 'NG', currencyCode: 'NGN', isEnabled: true, currencySymbol: '₦' },
+          { id: '3', name: 'Kenya', code: 'KE', currencyCode: 'KES', isEnabled: true, currencySymbol: 'KSh' },
+          { id: '4', name: 'Ghana', code: 'GH', currencyCode: 'GHS', isEnabled: true, currencySymbol: 'GH₵' },
+          { id: '5', name: 'United States', code: 'US', currencyCode: 'USD', isEnabled: true, currencySymbol: '$' },
+        ]
+        setCountries(defaultCountries)
+      }
+    }
+    fetchCountries()
   }, [])
 
   useEffect(() => {
