@@ -17,7 +17,7 @@ import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { bankVerificationApi, beneficiariesApi, countriesApi, transfersApi, type UsernameSearchResult, type Country, type BankListResponse, type BankVerificationResponse, type InitiateTransferRequest, type InitiateTransferResponse } from "@/lib/api"
+import { bankVerificationApi, beneficiariesApi, countriesApi, transfersApi, authApi, type UsernameSearchResult, type Country, type BankListResponse, type BankVerificationResponse, type InitiateTransferRequest, type InitiateTransferResponse } from "@/lib/api"
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   ZAR: "R", USD: "$", EUR: "€", GBP: "£", NGN: "₦", KES: "KSh",
@@ -85,9 +85,18 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
   const fee = parseFloat(amount || "0") * 0.015
   const total = parseFloat(amount || "0") + fee
 
+  const fetchCountries = useCallback(async () => {
+    try {
+      const data = await countriesApi.getAll()
+      setCountries(data)
+    } catch {
+      setCountries([])
+    }
+  }, [])
+
   useEffect(() => {
     fetchCountries()
-  }, [])
+  }, [fetchCountries])
 
   useEffect(() => {
     if (selectedCountry) {

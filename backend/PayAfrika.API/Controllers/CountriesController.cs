@@ -9,7 +9,6 @@ namespace PayAfrika.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-[Authorize(Roles = "admin")]
 public class CountriesController : ControllerBase
 {
     private readonly AppDbContext _db;
@@ -17,6 +16,7 @@ public class CountriesController : ControllerBase
     public CountriesController(AppDbContext db) => _db = db;
 
     [HttpGet]
+    [Authorize]
     public async Task<ActionResult<List<CountryListResponse>>> GetAll()
     {
         var countries = await _db.Countries.OrderBy(c => c.SortOrder).ToListAsync();
@@ -32,6 +32,7 @@ public class CountriesController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult<Country>> Create([FromBody] Country country)
     {
         country.Id = Guid.NewGuid();
@@ -42,6 +43,7 @@ public class CountriesController : ControllerBase
     }
 
     [HttpPut("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult> Update(Guid id, [FromBody] Country updated)
     {
         var country = await _db.Countries.FindAsync(id);
@@ -60,6 +62,7 @@ public class CountriesController : ControllerBase
     }
 
     [HttpDelete("{id}")]
+    [Authorize(Roles = "admin")]
     public async Task<ActionResult> Delete(Guid id)
     {
         var country = await _db.Countries.FindAsync(id);
