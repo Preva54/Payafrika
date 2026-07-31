@@ -10,7 +10,7 @@ using PayAfrika.API.Services;
 namespace PayAfrika.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("api/bank-verification")]
 [Authorize]
 public class BankVerificationController : ControllerBase
 {
