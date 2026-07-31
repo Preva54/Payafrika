@@ -287,7 +287,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                </div>
              </div>
            )}
-           {!(verification?.success) && step === 2 && transferType === "bank" && (
+           {step === 2 && transferType === "bank" && (
             <motion.div key="bank-select" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
               <div className="space-y-2">
                 <Label>Country</Label>
@@ -397,7 +397,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
             </motion.div>
           )}
 
-          {!(verification?.success) && step === 2 && transferType === "international" && (
+           {step === 2 && transferType === "international" && (
             <motion.div key="international" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
               <div className="space-y-2">
                 <Label>Destination Country</Label>
