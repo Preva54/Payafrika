@@ -1264,6 +1264,50 @@ using (var scope = app.Services.CreateScope())
 
         ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""Username"" VARCHAR(35) NULL;
         CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Users_Username"" ON ""Users""(""Username"") WHERE ""Username"" IS NOT NULL;
+
+        CREATE TABLE IF NOT EXISTS ""Countries"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""Name"" VARCHAR(100) NOT NULL,
+            ""Code"" VARCHAR(3) NOT NULL,
+            ""CurrencyCode"" VARCHAR(3) NOT NULL DEFAULT 'ZAR',
+            ""CurrencySymbol"" VARCHAR(5) NULL,
+            ""IsEnabled"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Countries_Code"" ON ""Countries""(""Code"");
+
+        CREATE TABLE IF NOT EXISTS ""Banks"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""CountryCode"" VARCHAR(3) NOT NULL,
+            ""Name"" VARCHAR(200) NOT NULL,
+            ""Code"" VARCHAR(50) NULL,
+            ""IsEnabled"" BOOLEAN NOT NULL DEFAULT TRUE,
+            ""SortOrder"" INTEGER NOT NULL DEFAULT 0,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            ""UpdatedAt"" TIMESTAMPTZ NULL
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_Banks_CountryCode"" ON ""Banks""(""CountryCode"");
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_Banks_CountryCode_Code"" ON ""Banks""(""CountryCode"", ""Code"");
+
+        CREATE TABLE IF NOT EXISTS ""BankVerifications"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""CountryCode"" VARCHAR(3) NOT NULL,
+            ""BankCode"" VARCHAR(200) NULL,
+            ""BankName"" VARCHAR(50) NULL,
+            ""AccountNumber"" VARCHAR(50) NOT NULL,
+            ""AccountName"" VARCHAR(200) NULL,
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'pending',
+            ""Provider"" VARCHAR(100) NULL,
+            ""ProviderRequestId"" VARCHAR(200) NULL,
+            ""RawResponse"" TEXT NULL,
+            ""ErrorMessage"" TEXT NULL,
+            ""VerifiedAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_BankVerifications_UserId"" ON ""BankVerifications""(""UserId"");
     ");
 
     // ─── Seed Default Roles & Permissions ──────────────────────
