@@ -1540,8 +1540,7 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 
-    // Seed banks for destination countries
-    if (!db.Banks.Any())
+    // Seed banks for destination countries (idempotent: adds only missing banks)
     {
         var banks = new List<PayAfrika.API.Models.Bank>
         {
@@ -1588,9 +1587,77 @@ using (var scope = app.Services.CreateScope())
             new() { CountryCode = "AU", Name = "ANZ", Code = "ANZ", SortOrder = 2 },
             new() { CountryCode = "AU", Name = "Westpac", Code = "WBC", SortOrder = 3 },
             new() { CountryCode = "AU", Name = "National Australia Bank", Code = "NAB", SortOrder = 4 },
+            new() { CountryCode = "BW", Name = "FNB Botswana", Code = "FNB", SortOrder = 1 },
+            new() { CountryCode = "BW", Name = "Barclays Botswana", Code = "BAR", SortOrder = 2 },
+            new() { CountryCode = "BW", Name = "Stanbic Bank Botswana", Code = "STA", SortOrder = 3 },
+            new() { CountryCode = "BW", Name = "Standard Chartered", Code = "SCB", SortOrder = 4 },
+            new() { CountryCode = "BW", Name = "Absa Botswana", Code = "ABS", SortOrder = 5 },
+            new() { CountryCode = "ZM", Name = "Zanaco", Code = "ZAN", SortOrder = 1 },
+            new() { CountryCode = "ZM", Name = "Standard Chartered Zambia", Code = "SCB", SortOrder = 2 },
+            new() { CountryCode = "ZM", Name = "Barclays Zambia", Code = "BAR", SortOrder = 3 },
+            new() { CountryCode = "ZM", Name = "FNB Zambia", Code = "FNB", SortOrder = 4 },
+            new() { CountryCode = "ZM", Name = "Stanbic Bank Zambia", Code = "STA", SortOrder = 5 },
+            new() { CountryCode = "TZ", Name = "NMB Bank", Code = "NMB", SortOrder = 1 },
+            new() { CountryCode = "TZ", Name = "CRDB Bank", Code = "CRDB", SortOrder = 2 },
+            new() { CountryCode = "TZ", Name = "NBC Tanzania", Code = "NBC", SortOrder = 3 },
+            new() { CountryCode = "TZ", Name = "Stanbic Bank Tanzania", Code = "STA", SortOrder = 4 },
+            new() { CountryCode = "TZ", Name = "Standard Chartered", Code = "SCB", SortOrder = 5 },
+            new() { CountryCode = "UG", Name = "Stanbic Bank Uganda", Code = "STA", SortOrder = 1 },
+            new() { CountryCode = "UG", Name = "Standard Chartered", Code = "SCB", SortOrder = 2 },
+            new() { CountryCode = "UG", Name = "Barclays Uganda", Code = "BAR", SortOrder = 3 },
+            new() { CountryCode = "UG", Name = "Equity Bank Uganda", Code = "EQT", SortOrder = 4 },
+            new() { CountryCode = "UG", Name = "Centenary Bank", Code = "CEN", SortOrder = 5 },
+            new() { CountryCode = "RW", Name = "Bank of Kigali", Code = "BOK", SortOrder = 1 },
+            new() { CountryCode = "RW", Name = "Equity Bank Rwanda", Code = "EQT", SortOrder = 2 },
+            new() { CountryCode = "RW", Name = "Ecobank Rwanda", Code = "ECO", SortOrder = 3 },
+            new() { CountryCode = "RW", Name = "KCB Rwanda", Code = "KCB", SortOrder = 4 },
+            new() { CountryCode = "RW", Name = "BPR Bank", Code = "BPR", SortOrder = 5 },
+            new() { CountryCode = "NA", Name = "FNB Namibia", Code = "FNB", SortOrder = 1 },
+            new() { CountryCode = "NA", Name = "Standard Bank Namibia", Code = "SB", SortOrder = 2 },
+            new() { CountryCode = "NA", Name = "Nedbank Namibia", Code = "NED", SortOrder = 3 },
+            new() { CountryCode = "NA", Name = "Bank Windhoek", Code = "BWK", SortOrder = 4 },
+            new() { CountryCode = "NA", Name = "Absa Namibia", Code = "ABS", SortOrder = 5 },
+            new() { CountryCode = "SZ", Name = "Standard Bank Eswatini", Code = "SB", SortOrder = 1 },
+            new() { CountryCode = "SZ", Name = "Nedbank Eswatini", Code = "NED", SortOrder = 2 },
+            new() { CountryCode = "SZ", Name = "FNB Eswatini", Code = "FNB", SortOrder = 3 },
+            new() { CountryCode = "SZ", Name = "Absa Eswatini", Code = "ABS", SortOrder = 4 },
+            new() { CountryCode = "MW", Name = "National Bank of Malawi", Code = "NBM", SortOrder = 1 },
+            new() { CountryCode = "MW", Name = "Standard Bank Malawi", Code = "SB", SortOrder = 2 },
+            new() { CountryCode = "MW", Name = "FDH Bank", Code = "FDH", SortOrder = 3 },
+            new() { CountryCode = "MW", Name = "Nedbank Malawi", Code = "NED", SortOrder = 4 },
+            new() { CountryCode = "MW", Name = "First Capital Bank", Code = "FCM", SortOrder = 5 },
+            new() { CountryCode = "ZW", Name = "CBZ Bank", Code = "CBZ", SortOrder = 1 },
+            new() { CountryCode = "ZW", Name = "Stanbic Bank Zimbabwe", Code = "STA", SortOrder = 2 },
+            new() { CountryCode = "ZW", Name = "Standard Chartered", Code = "SCB", SortOrder = 3 },
+            new() { CountryCode = "ZW", Name = "FBC Bank", Code = "FBC", SortOrder = 4 },
+            new() { CountryCode = "ZW", Name = "NMB Bank", Code = "NMB", SortOrder = 5 },
+            new() { CountryCode = "ET", Name = "Commercial Bank of Ethiopia", Code = "CBE", SortOrder = 1 },
+            new() { CountryCode = "ET", Name = "Awash Bank", Code = "AWK", SortOrder = 2 },
+            new() { CountryCode = "ET", Name = "Dashen Bank", Code = "DSH", SortOrder = 3 },
+            new() { CountryCode = "ET", Name = "Abyssinia Bank", Code = "ABY", SortOrder = 4 },
+            new() { CountryCode = "MZ", Name = "Millennium BIM", Code = "MBI", SortOrder = 1 },
+            new() { CountryCode = "MZ", Name = "Standard Bank Mozambique", Code = "SB", SortOrder = 2 },
+            new() { CountryCode = "MZ", Name = "BCI Mozambique", Code = "BCI", SortOrder = 3 },
+            new() { CountryCode = "MZ", Name = "Absa Mozambique", Code = "ABS", SortOrder = 4 },
+            new() { CountryCode = "MZ", Name = "Moza Banco", Code = "MOZ", SortOrder = 5 },
+            new() { CountryCode = "EG", Name = "National Bank of Egypt", Code = "NBE", SortOrder = 1 },
+            new() { CountryCode = "EG", Name = "Banque Misr", Code = "BM", SortOrder = 2 },
+            new() { CountryCode = "EG", Name = "CIB Egypt", Code = "CIB", SortOrder = 3 },
+            new() { CountryCode = "EG", Name = "HSBC Egypt", Code = "HSBC", SortOrder = 4 },
+            new() { CountryCode = "EG", Name = "QNB Alahli", Code = "QNB", SortOrder = 5 },
+            new() { CountryCode = "MA", Name = "Attijariwafa Bank", Code = "ATT", SortOrder = 1 },
+            new() { CountryCode = "MA", Name = "BMCE Bank", Code = "BMCE", SortOrder = 2 },
+            new() { CountryCode = "MA", Name = "Banque Populaire", Code = "BP", SortOrder = 3 },
+            new() { CountryCode = "MA", Name = "CIH Bank", Code = "CIH", SortOrder = 4 },
+            new() { CountryCode = "MA", Name = "Societe Generale Maroc", Code = "SG", SortOrder = 5 },
         };
-        db.Banks.AddRange(banks);
-        db.SaveChanges();
+        var existing = db.Banks.Select(b => new { b.CountryCode, b.Code }).ToHashSet();
+        var missing = banks.Where(b => !existing.Contains(new { b.CountryCode, b.Code })).ToList();
+        if (missing.Count > 0)
+        {
+            db.Banks.AddRange(missing);
+            db.SaveChanges();
+        }
     }
 
 }

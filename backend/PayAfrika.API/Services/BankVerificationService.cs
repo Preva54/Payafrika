@@ -81,6 +81,108 @@ public class BankVerificationService : IBankVerificationService
             new() { Id = Guid.NewGuid(), CountryCode = "AU", Name = "Westpac", Code = "WBC" },
             new() { Id = Guid.NewGuid(), CountryCode = "AU", Name = "National Australia Bank", Code = "NAB" },
         },
+        ["BW"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "BW", Name = "FNB Botswana", Code = "FNB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "BW", Name = "Barclays Botswana", Code = "BAR" },
+            new() { Id = Guid.NewGuid(), CountryCode = "BW", Name = "Stanbic Bank Botswana", Code = "STA" },
+            new() { Id = Guid.NewGuid(), CountryCode = "BW", Name = "Standard Chartered", Code = "SCB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "BW", Name = "Absa Botswana", Code = "ABS" },
+        },
+        ["ZM"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "ZM", Name = "Zanaco", Code = "ZAN" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ZM", Name = "Standard Chartered Zambia", Code = "SCB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ZM", Name = "Barclays Zambia", Code = "BAR" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ZM", Name = "FNB Zambia", Code = "FNB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ZM", Name = "Stanbic Bank Zambia", Code = "STA" },
+        },
+        ["TZ"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "TZ", Name = "NMB Bank", Code = "NMB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "TZ", Name = "CRDB Bank", Code = "CRDB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "TZ", Name = "NBC Tanzania", Code = "NBC" },
+            new() { Id = Guid.NewGuid(), CountryCode = "TZ", Name = "Stanbic Bank Tanzania", Code = "STA" },
+            new() { Id = Guid.NewGuid(), CountryCode = "TZ", Name = "Standard Chartered", Code = "SCB" },
+        },
+        ["UG"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "UG", Name = "Stanbic Bank Uganda", Code = "STA" },
+            new() { Id = Guid.NewGuid(), CountryCode = "UG", Name = "Standard Chartered", Code = "SCB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "UG", Name = "Barclays Uganda", Code = "BAR" },
+            new() { Id = Guid.NewGuid(), CountryCode = "UG", Name = "Equity Bank Uganda", Code = "EQT" },
+            new() { Id = Guid.NewGuid(), CountryCode = "UG", Name = "Centenary Bank", Code = "CEN" },
+        },
+        ["RW"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "RW", Name = "Bank of Kigali", Code = "BOK" },
+            new() { Id = Guid.NewGuid(), CountryCode = "RW", Name = "Equity Bank Rwanda", Code = "EQT" },
+            new() { Id = Guid.NewGuid(), CountryCode = "RW", Name = "Ecobank Rwanda", Code = "ECO" },
+            new() { Id = Guid.NewGuid(), CountryCode = "RW", Name = "KCB Rwanda", Code = "KCB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "RW", Name = "BPR Bank", Code = "BPR" },
+        },
+        ["NA"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "NA", Name = "FNB Namibia", Code = "FNB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "NA", Name = "Standard Bank Namibia", Code = "SB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "NA", Name = "Nedbank Namibia", Code = "NED" },
+            new() { Id = Guid.NewGuid(), CountryCode = "NA", Name = "Bank Windhoek", Code = "BWK" },
+            new() { Id = Guid.NewGuid(), CountryCode = "NA", Name = "Absa Namibia", Code = "ABS" },
+        },
+        ["SZ"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "SZ", Name = "Standard Bank Eswatini", Code = "SB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "SZ", Name = "Nedbank Eswatini", Code = "NED" },
+            new() { Id = Guid.NewGuid(), CountryCode = "SZ", Name = "FNB Eswatini", Code = "FNB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "SZ", Name = "Absa Eswatini", Code = "ABS" },
+        },
+        ["MW"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "MW", Name = "National Bank of Malawi", Code = "NBM" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MW", Name = "Standard Bank Malawi", Code = "SB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MW", Name = "FDH Bank", Code = "FDH" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MW", Name = "Nedbank Malawi", Code = "NED" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MW", Name = "First Capital Bank", Code = "FCM" },
+        },
+        ["ZW"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "ZW", Name = "CBZ Bank", Code = "CBZ" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ZW", Name = "Stanbic Bank Zimbabwe", Code = "STA" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ZW", Name = "Standard Chartered", Code = "SCB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ZW", Name = "FBC Bank", Code = "FBC" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ZW", Name = "NMB Bank", Code = "NMB" },
+        },
+        ["ET"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "ET", Name = "Commercial Bank of Ethiopia", Code = "CBE" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ET", Name = "Awash Bank", Code = "AWK" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ET", Name = "Dashen Bank", Code = "DSH" },
+            new() { Id = Guid.NewGuid(), CountryCode = "ET", Name = "Abyssinia Bank", Code = "ABY" },
+        },
+        ["MZ"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "MZ", Name = "Millennium BIM", Code = "MBI" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MZ", Name = "Standard Bank Mozambique", Code = "SB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MZ", Name = "BCI Mozambique", Code = "BCI" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MZ", Name = "Absa Mozambique", Code = "ABS" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MZ", Name = "Moza Banco", Code = "MOZ" },
+        },
+        ["EG"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "EG", Name = "National Bank of Egypt", Code = "NBE" },
+            new() { Id = Guid.NewGuid(), CountryCode = "EG", Name = "Banque Misr", Code = "BM" },
+            new() { Id = Guid.NewGuid(), CountryCode = "EG", Name = "CIB Egypt", Code = "CIB" },
+            new() { Id = Guid.NewGuid(), CountryCode = "EG", Name = "HSBC Egypt", Code = "HSBC" },
+            new() { Id = Guid.NewGuid(), CountryCode = "EG", Name = "QNB Alahli", Code = "QNB" },
+        },
+        ["MA"] = new()
+        {
+            new() { Id = Guid.NewGuid(), CountryCode = "MA", Name = "Attijariwafa Bank", Code = "ATT" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MA", Name = "BMCE Bank", Code = "BMCE" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MA", Name = "Banque Populaire", Code = "BP" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MA", Name = "CIH Bank", Code = "CIH" },
+            new() { Id = Guid.NewGuid(), CountryCode = "MA", Name = "Societe Generale Maroc", Code = "SG" },
+        },
     };
 
     public BankVerificationService(AppDbContext db, HttpClient httpClient, ILogger<BankVerificationService> logger)
