@@ -1,4 +1,3 @@
-using System.Net.Http.Json;
 using Microsoft.EntityFrameworkCore;
 using PayAfrika.API.Data;
 using PayAfrika.API.DTOs;
@@ -9,13 +8,13 @@ namespace PayAfrika.API.Services;
 public class BankVerificationService : IBankVerificationService
 {
     private readonly AppDbContext _db;
-    private readonly HttpClient _httpClient;
+    private readonly IEnumerable<IBankVerificationProvider> _providers;
     private readonly ILogger<BankVerificationService> _logger;
 
-    public BankVerificationService(AppDbContext db, HttpClient httpClient, ILogger<BankVerificationService> logger)
+    public BankVerificationService(AppDbContext db, IEnumerable<IBankVerificationProvider> providers, ILogger<BankVerificationService> logger)
     {
         _db = db;
-        _httpClient = httpClient;
+        _providers = providers;
         _logger = logger;
     }
 
@@ -23,34 +22,52 @@ public class BankVerificationService : IBankVerificationService
     {
         try
         {
-            if (string.IsNullOrWhiteSpace(countryCode))
+            var cc = countryCode.ToUpper();
+
+            if (string.IsNullOrWhiteSpace(cc))
                 return new VerifyAccountResponse { Success = false, Status = "failed", Message = "Country code is required." };
 
             if (string.IsNullOrWhiteSpace(accountNumber))
                 return new VerifyAccountResponse { Success = false, Status = "failed", Message = "Account number is required." };
 
             var bank = await _db.Banks
-                .FirstOrDefaultAsync(b => b.CountryCode == countryCode.ToUpper() && b.Code == bankCode.ToUpper());
+                .FirstOrDefaultAsync(b => b.CountryCode == cc && b.Code == bankCode.ToUpper());
 
             if (bank == null)
                 return new VerifyAccountResponse { Success = false, Status = "failed", Message = "Unsupported bank." };
 
-            if (accountNumber.Length < 5 || accountNumber.Length > 20)
-                return new VerifyAccountResponse { Success = false, Status = "failed", Message = "Invalid account number format." };
+            var provider = _providers.FirstOrDefault(p => p.IsCountrySupported(cc));
+            if (provider == null)
+            {
+                _logger.LogWarning("No bank verification provider available for {CountryCode}", cc);
+                return new VerifyAccountResponse
+                {
+                    Success = false,
+                    Status = "unsupported",
+                    Message = "Bank account verification is not available for this country yet. Please contact support.",
+                };
+            }
 
-            var verificationId = Guid.NewGuid().ToString();
+            var result = await provider.VerifyAsync(cc, bankCode, accountNumber);
+            if (!result.Success)
+                return new VerifyAccountResponse
+                {
+                    Success = false,
+                    Status = "failed",
+                    Message = result.ErrorMessage ?? "Unable to verify this bank account.",
+                };
 
             var verification = new BankVerification
             {
                 UserId = userId,
-                CountryCode = countryCode.ToUpper(),
+                CountryCode = cc,
                 BankCode = bankCode.ToUpper(),
                 BankName = bank.Name,
                 AccountNumber = accountNumber,
                 Status = "verified",
-                Provider = "internal",
-                ProviderRequestId = verificationId,
-                AccountName = GenerateAccountName(accountNumber),
+                Provider = provider.ProviderName,
+                ProviderRequestId = result.RequestId,
+                AccountName = result.AccountName,
                 VerifiedAt = DateTime.UtcNow,
                 CreatedAt = DateTime.UtcNow,
             };
@@ -64,8 +81,8 @@ public class BankVerificationService : IBankVerificationService
                 Status = "verified",
                 AccountName = verification.AccountName,
                 BankName = bank.Name,
-                CountryCode = countryCode.ToUpper(),
-                VerificationId = verificationId,
+                CountryCode = cc,
+                VerificationId = result.RequestId,
                 Message = "Account verified successfully.",
             };
         }
@@ -74,24 +91,6 @@ public class BankVerificationService : IBankVerificationService
             _logger.LogError(ex, "Bank verification failed for {CountryCode}/{BankCode}/{AccountNumber}", countryCode, bankCode, accountNumber);
             return new VerifyAccountResponse { Success = false, Status = "failed", Message = "Verification service is temporarily unavailable." };
         }
-    }
-
-    private static string GenerateAccountName(string accountNumber)
-    {
-        var hashes = new Dictionary<string, string>
-        {
-            ["1234567890"] = "Peter Osakwe",
-            ["0987654321"] = "Sarah Mabena",
-            ["1111111111"] = "Kwame Asante",
-            ["2222222222"] = "Grace Nkosi",
-            ["3333333333"] = "David Kamau",
-            ["4444444444"] = "Maria Santos",
-            ["5555555555"] = "David Smith",
-            ["6666666666"] = "Sarah Johnson",
-            ["7777777777"] = "Robert Chen",
-            ["8888888888"] = "Amina Diallo",
-        };
-        return hashes.GetValueOrDefault(accountNumber, $"Account Holder {accountNumber[^4..]}");
     }
 
     public async Task<List<BankListResponse>> GetBanksForCountryAsync(string countryCode)

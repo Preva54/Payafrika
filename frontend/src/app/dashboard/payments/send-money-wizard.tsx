@@ -32,6 +32,18 @@ const COUNTRY_FLAGS: Record<string, string> = {
   ES: "🇪🇸", IT: "🇮🇹", KE: "🇰🇪", ET: "🇪🇹", SZ: "🇸🇿", MW: "🇲🇼",
 }
 
+const ACCOUNT_DIGITS: Record<string, { min: number; max: number }> = {
+  ZA: { min: 6, max: 10 }, NG: { min: 10, max: 10 }, KE: { min: 10, max: 12 }, GH: { min: 10, max: 13 },
+  GB: { min: 8, max: 8 }, US: { min: 8, max: 17 }, CA: { min: 7, max: 12 }, AU: { min: 6, max: 9 },
+  BW: { min: 10, max: 12 }, ZM: { min: 8, max: 13 }, TZ: { min: 10, max: 13 }, UG: { min: 10, max: 12 },
+  RW: { min: 10, max: 12 }, NA: { min: 6, max: 12 }, SZ: { min: 10, max: 12 }, MW: { min: 10, max: 13 },
+  ZW: { min: 10, max: 13 }, ET: { min: 6, max: 16 }, MZ: { min: 9, max: 14 }, EG: { min: 10, max: 14 },
+  MA: { min: 20, max: 24 },
+}
+const DEFAULT_ACCOUNT_DIGITS = { min: 6, max: 20 }
+
+const maskAccount = (accountNumber: string) => `${"*".repeat(8)}${accountNumber.slice(-4)}`
+
 export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
   const [step, setStep] = useState(1)
   const [transferType, setTransferType] = useState("")
@@ -130,10 +142,11 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     if (verificationTimeout.current) clearTimeout(verificationTimeout.current)
-    if (accountNumber.length >= 6 && selectedBank && selectedCountry) {
+    const { min } = ACCOUNT_DIGITS[selectedCountry] ?? DEFAULT_ACCOUNT_DIGITS
+    if (accountNumber.length >= min && selectedBank && selectedCountry) {
       verificationTimeout.current = setTimeout(() => {
         handleVerifyAccount()
-      }, 800)
+      }, 400)
     }
     return () => { if (verificationTimeout.current) clearTimeout(verificationTimeout.current) }
   }, [accountNumber])
@@ -194,7 +207,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
       const req: InitiateTransferRequest = {
         amount: parseFloat(amount),
         currency,
-        recipientName: getRecipientDisplay(),
+        recipientName: verification?.accountName || getRecipientDisplay(),
         recipientType: transferType === "bank" || transferType === "international" ? "bank" : recipientType,
         recipientCountryCode: selectedCountry || undefined,
         recipientBankName: getBankName() || undefined,
@@ -320,13 +333,14 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                     </div>
                   </div>
 
-                  <div className="space-y-2">
+                    <div className="space-y-2">
                     <Label>Account Number</Label>
                     <Input
                       placeholder="Enter account number"
                       value={accountNumber}
-                      onChange={e => { setAccountNumber(e.target.value); setVerification(null) }}
-                      maxLength={20}
+                      onChange={e => { setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, (ACCOUNT_DIGITS[selectedCountry]?.max ?? DEFAULT_ACCOUNT_DIGITS.max))); setVerification(null) }}
+                      maxLength={ACCOUNT_DIGITS[selectedCountry]?.max ?? DEFAULT_ACCOUNT_DIGITS.max}
+                      inputMode="numeric"
                     />
                   </div>
 
@@ -338,22 +352,43 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                   )}
 
                   {verification?.success === false && !verifying && (
-                    <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
-                      <XCircle className="h-4 w-4 text-red-600" />
-                      <span className="text-sm text-red-700">{verification.message || "Unable to verify this account."}</span>
-                      <Button variant="outline" size="sm" className="ml-auto" onClick={handleVerifyAccount}>
-                        <RefreshCw className="mr-1 h-3 w-3" />Retry
-                      </Button>
+                    <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="h-5 w-5 text-red-600" />
+                        <p className="font-medium text-sm text-red-800">Unable to verify this bank account.</p>
+                        <Button variant="outline" size="sm" className="ml-auto" onClick={handleVerifyAccount}>
+                          <RefreshCw className="mr-1 h-3 w-3" />Retry
+                        </Button>
+                      </div>
+                      <p className="text-sm text-red-700 mt-2">Please check:</p>
+                      <ul className="list-disc list-inside text-sm text-red-700">
+                        <li>Bank</li>
+                        <li>Account Number</li>
+                      </ul>
+                      <p className="text-sm text-red-700">and try again.</p>
                     </div>
                   )}
 
                   {verification?.success && (
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <div className="flex-1">
+                    <div className="p-4 rounded-xl bg-green-50 border border-green-200 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
                         <p className="font-medium text-sm text-green-800">Account Verified</p>
-                        <p className="text-sm text-green-700">{verification.accountName}</p>
-                        <p className="text-xs text-green-600">{getBankName()}</p>
+                        <ShieldCheck className="h-4 w-4 text-green-500 ml-auto" />
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 pt-1">
+                        <div className="flex justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Account Name</span>
+                          <span className="font-semibold text-green-900 uppercase text-right">{verification.accountName}</span>
+                        </div>
+                        <div className="flex justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Bank</span>
+                          <span className="font-medium text-green-800 text-right">{getBankName()}</span>
+                        </div>
+                        <div className="flex justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Account Number</span>
+                          <span className="font-mono font-medium text-green-800">{maskAccount(accountNumber)}</span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -419,7 +454,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
 
                   <div className="space-y-2">
                     <Label>Account Number</Label>
-                    <Input placeholder="Enter account number" value={accountNumber} onChange={e => { setAccountNumber(e.target.value); setVerification(null) }} maxLength={20} />
+                    <Input placeholder="Enter account number" value={accountNumber} onChange={e => { setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, (ACCOUNT_DIGITS[selectedCountry]?.max ?? DEFAULT_ACCOUNT_DIGITS.max))); setVerification(null) }} maxLength={ACCOUNT_DIGITS[selectedCountry]?.max ?? DEFAULT_ACCOUNT_DIGITS.max} inputMode="numeric" />
                   </div>
 
                   {verifying && (
@@ -430,22 +465,43 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                   )}
 
                   {verification?.success === false && !verifying && (
-                    <div className="flex items-center gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
-                      <XCircle className="h-4 w-4 text-red-600" />
-                      <span className="text-sm text-red-700">{verification.message || "Unable to verify this account."}</span>
-                      <Button variant="outline" size="sm" className="ml-auto" onClick={handleVerifyAccount}>
-                        <RefreshCw className="mr-1 h-3 w-3" />Retry
-                      </Button>
+                    <div className="p-4 rounded-xl bg-red-50 border border-red-200">
+                      <div className="flex items-center gap-2">
+                        <XCircle className="h-5 w-5 text-red-600" />
+                        <p className="font-medium text-sm text-red-800">Unable to verify this bank account.</p>
+                        <Button variant="outline" size="sm" className="ml-auto" onClick={handleVerifyAccount}>
+                          <RefreshCw className="mr-1 h-3 w-3" />Retry
+                        </Button>
+                      </div>
+                      <p className="text-sm text-red-700 mt-2">Please check:</p>
+                      <ul className="list-disc list-inside text-sm text-red-700">
+                        <li>Bank</li>
+                        <li>Account Number</li>
+                      </ul>
+                      <p className="text-sm text-red-700">and try again.</p>
                     </div>
                   )}
 
                   {verification?.success && (
-                    <div className="flex items-center gap-3 p-3 rounded-xl bg-green-50 border border-green-200">
-                      <CheckCircle2 className="h-5 w-5 text-green-600" />
-                      <div className="flex-1">
+                    <div className="p-4 rounded-xl bg-green-50 border border-green-200 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-5 w-5 text-green-600" />
                         <p className="font-medium text-sm text-green-800">Account Verified</p>
-                        <p className="text-sm text-green-700">{verification.accountName}</p>
-                        <p className="text-xs text-green-600">{getBankName()}</p>
+                        <ShieldCheck className="h-4 w-4 text-green-500 ml-auto" />
+                      </div>
+                      <div className="grid grid-cols-1 gap-2 pt-1">
+                        <div className="flex justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Account Name</span>
+                          <span className="font-semibold text-green-900 uppercase text-right">{verification.accountName}</span>
+                        </div>
+                        <div className="flex justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Bank</span>
+                          <span className="font-medium text-green-800 text-right">{getBankName()}</span>
+                        </div>
+                        <div className="flex justify-between gap-3 text-sm">
+                          <span className="text-muted-foreground">Account Number</span>
+                          <span className="font-mono font-medium text-green-800">{maskAccount(accountNumber)}</span>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -533,8 +589,8 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                   { label: "Type", value: transferType === "payafrika" ? "PayAfrika User" : transferType === "bank" ? "Local Bank Transfer" : "International Transfer" },
                   ...(selectedCountry ? [{ label: "Country", value: `${COUNTRY_FLAGS[selectedCountry] || "🌍"} ${selectedCountry}` }] : []),
                   ...(getBankName() ? [{ label: "Bank", value: getBankName() }] : []),
-                  ...(accountNumber ? [{ label: "Account", value: `****${accountNumber.slice(-4)}` }] : []),
-                  ...(verification?.success ? [{ label: "Account Holder", value: verification.accountName || "—", status: "verified" as const }] : []),
+                  ...(accountNumber ? [{ label: "Account", value: maskAccount(accountNumber) }] : []),
+                  ...(verification?.success ? [{ label: "Account Holder", value: (verification.accountName || "—").toUpperCase(), status: "verified" as const }] : []),
                   { label: "Amount", value: `${CURRENCY_SYMBOLS[currency] || "R"}${parseFloat(amount || "0").toFixed(2)}` },
                   { label: "Fee", value: `R ${fee.toFixed(2)}` },
                   ...(transferType === "international" ? [{ label: "You Pay", value: `${CURRENCY_SYMBOLS[currency] || "¥"}${parseFloat(amount || "0").toFixed(2)}` }] : []),
