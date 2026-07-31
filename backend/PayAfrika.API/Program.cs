@@ -1465,6 +1465,90 @@ using (var scope = app.Services.CreateScope())
         db.SaveChanges();
     }
 
+    // Seed destination countries for transfers
+    if (!db.Countries.Any())
+    {
+        var countries = new List<PayAfrika.API.Models.Country>
+        {
+            new() { Name = "South Africa", Code = "ZA", CurrencyCode = "ZAR", CurrencySymbol = "R", IsEnabled = true, SortOrder = 1 },
+            new() { Name = "Nigeria", Code = "NG", CurrencyCode = "NGN", CurrencySymbol = "₦", IsEnabled = true, SortOrder = 2 },
+            new() { Name = "Kenya", Code = "KE", CurrencyCode = "KES", CurrencySymbol = "KSh", IsEnabled = true, SortOrder = 3 },
+            new() { Name = "Ghana", Code = "GH", CurrencyCode = "GHS", CurrencySymbol = "GH₵", IsEnabled = true, SortOrder = 4 },
+            new() { Name = "United Kingdom", Code = "GB", CurrencyCode = "GBP", CurrencySymbol = "£", IsEnabled = true, SortOrder = 5 },
+            new() { Name = "United States", Code = "US", CurrencyCode = "USD", CurrencySymbol = "$", IsEnabled = true, SortOrder = 6 },
+            new() { Name = "Canada", Code = "CA", CurrencyCode = "CAD", CurrencySymbol = "C$", IsEnabled = true, SortOrder = 7 },
+            new() { Name = "Australia", Code = "AU", CurrencyCode = "AUD", CurrencySymbol = "A$", IsEnabled = true, SortOrder = 8 },
+            new() { Name = "Botswana", Code = "BW", CurrencyCode = "BWP", CurrencySymbol = "P", IsEnabled = true, SortOrder = 9 },
+            new() { Name = "Zambia", Code = "ZM", CurrencyCode = "ZMW", CurrencySymbol = "ZK", IsEnabled = true, SortOrder = 10 },
+            new() { Name = "Tanzania", Code = "TZ", CurrencyCode = "TZS", CurrencySymbol = "TSh", IsEnabled = true, SortOrder = 11 },
+            new() { Name = "Uganda", Code = "UG", CurrencyCode = "UGX", CurrencySymbol = "USh", IsEnabled = true, SortOrder = 12 },
+            new() { Name = "Rwanda", Code = "RW", CurrencyCode = "RWF", CurrencySymbol = "Fr", IsEnabled = true, SortOrder = 13 },
+            new() { Name = "Namibia", Code = "NA", CurrencyCode = "NAD", CurrencySymbol = "N$", IsEnabled = true, SortOrder = 14 },
+            new() { Name = "Eswatini", Code = "SZ", CurrencyCode = "SZL", CurrencySymbol = "E", IsEnabled = true, SortOrder = 15 },
+            new() { Name = "Malawi", Code = "MW", CurrencyCode = "MWK", CurrencySymbol = "MK", IsEnabled = true, SortOrder = 16 },
+            new() { Name = "Zimbabwe", Code = "ZW", CurrencyCode = "USD", CurrencySymbol = "$", IsEnabled = true, SortOrder = 17 },
+            new() { Name = "Ethiopia", Code = "ET", CurrencyCode = "ETB", CurrencySymbol = "Br", IsEnabled = true, SortOrder = 18 },
+            new() { Name = "Mozambique", Code = "MZ", CurrencyCode = "MZN", CurrencySymbol = "MT", IsEnabled = true, SortOrder = 19 },
+            new() { Name = "Egypt", Code = "EG", CurrencyCode = "EGP", CurrencySymbol = "E£", IsEnabled = true, SortOrder = 20 },
+            new() { Name = "Morocco", Code = "MA", CurrencyCode = "MAD", CurrencySymbol = "DH", IsEnabled = true, SortOrder = 21 },
+        };
+        db.Countries.AddRange(countries);
+        db.SaveChanges();
+    }
+
+    // Seed banks for destination countries
+    if (!db.Banks.Any())
+    {
+        var banks = new List<PayAfrika.API.Models.Bank>
+        {
+            new() { CountryCode = "ZA", Name = "Capitec Bank", Code = "CAP", SortOrder = 1 },
+            new() { CountryCode = "ZA", Name = "FNB", Code = "FNB", SortOrder = 2 },
+            new() { CountryCode = "ZA", Name = "Standard Bank", Code = "SB", SortOrder = 3 },
+            new() { CountryCode = "ZA", Name = "Nedbank", Code = "NED", SortOrder = 4 },
+            new() { CountryCode = "ZA", Name = "Absa", Code = "ABS", SortOrder = 5 },
+            new() { CountryCode = "ZA", Name = "African Bank", Code = "AFB", SortOrder = 6 },
+            new() { CountryCode = "ZA", Name = "FirstRand", Code = "FIG", SortOrder = 7 },
+            new() { CountryCode = "ZA", Name = "Investec", Code = "IFT", SortOrder = 8 },
+            new() { CountryCode = "NG", Name = "Access Bank", Code = "ACC", SortOrder = 1 },
+            new() { CountryCode = "NG", Name = "First Bank", Code = "FBN", SortOrder = 2 },
+            new() { CountryCode = "NG", Name = "Zenith Bank", Code = "ZEN", SortOrder = 3 },
+            new() { CountryCode = "NG", Name = "GTBank", Code = "GTB", SortOrder = 4 },
+            new() { CountryCode = "NG", Name = "UBA", Code = "UBA", SortOrder = 5 },
+            new() { CountryCode = "NG", Name = "Sterling Bank", Code = "STB", SortOrder = 6 },
+            new() { CountryCode = "NG", Name = "Fidelity Bank", Code = "FID", SortOrder = 7 },
+            new() { CountryCode = "NG", Name = "Union Bank", Code = "UNI", SortOrder = 8 },
+            new() { CountryCode = "KE", Name = "Kenya Commercial Bank", Code = "KCB", SortOrder = 1 },
+            new() { CountryCode = "KE", Name = "Equity Bank", Code = "EQT", SortOrder = 2 },
+            new() { CountryCode = "KE", Name = "Cooperative Bank", Code = "COOP", SortOrder = 3 },
+            new() { CountryCode = "KE", Name = "National Bank", Code = "NBC", SortOrder = 4 },
+            new() { CountryCode = "KE", Name = "Family Bank", Code = "FAM", SortOrder = 5 },
+            new() { CountryCode = "GH", Name = "Ghana Commercial Bank", Code = "GCB", SortOrder = 1 },
+            new() { CountryCode = "GH", Name = "Ecobank Ghana", Code = "ECO", SortOrder = 2 },
+            new() { CountryCode = "GH", Name = "Access Bank Ghana", Code = "ACC", SortOrder = 3 },
+            new() { CountryCode = "GH", Name = "Stanbic Bank", Code = "STA", SortOrder = 4 },
+            new() { CountryCode = "GH", Name = "Fidelity Bank Ghana", Code = "FID", SortOrder = 5 },
+            new() { CountryCode = "GB", Name = "Barclays", Code = "BARC", SortOrder = 1 },
+            new() { CountryCode = "GB", Name = "HSBC", Code = "HSBC", SortOrder = 2 },
+            new() { CountryCode = "GB", Name = "Lloyds Bank", Code = "LLOY", SortOrder = 3 },
+            new() { CountryCode = "GB", Name = "NatWest", Code = "NW", SortOrder = 4 },
+            new() { CountryCode = "GB", Name = "Santander", Code = "SAN", SortOrder = 5 },
+            new() { CountryCode = "US", Name = "Chase Bank", Code = "CHASE", SortOrder = 1 },
+            new() { CountryCode = "US", Name = "Bank of America", Code = "BAC", SortOrder = 2 },
+            new() { CountryCode = "US", Name = "Wells Fargo", Code = "WFC", SortOrder = 3 },
+            new() { CountryCode = "US", Name = "Citibank", Code = "CITI", SortOrder = 4 },
+            new() { CountryCode = "CA", Name = "Royal Bank of Canada", Code = "RBC", SortOrder = 1 },
+            new() { CountryCode = "CA", Name = "Toronto-Dominion Bank", Code = "TD", SortOrder = 2 },
+            new() { CountryCode = "CA", Name = "Scotiabank", Code = "BNS", SortOrder = 3 },
+            new() { CountryCode = "CA", Name = "Bank of Montreal", Code = "BMO", SortOrder = 4 },
+            new() { CountryCode = "AU", Name = "Commonwealth Bank", Code = "CBA", SortOrder = 1 },
+            new() { CountryCode = "AU", Name = "ANZ", Code = "ANZ", SortOrder = 2 },
+            new() { CountryCode = "AU", Name = "Westpac", Code = "WBC", SortOrder = 3 },
+            new() { CountryCode = "AU", Name = "National Australia Bank", Code = "NAB", SortOrder = 4 },
+        };
+        db.Banks.AddRange(banks);
+        db.SaveChanges();
+    }
+
 }
 
 static string GetRoleDescription(string name) => name switch
