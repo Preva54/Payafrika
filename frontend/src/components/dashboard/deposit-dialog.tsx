@@ -101,6 +101,8 @@ export default function DepositDialog({
     try {
       const res = await depositsApi.submit({
         amount: parseFloat(amount),
+        bankName: COMPANY_BANK.bankName,
+        accountHolderName: COMPANY_BANK.accountName,
         referenceUsed,
         transferDate: new Date(transferDate).toISOString(),
       })

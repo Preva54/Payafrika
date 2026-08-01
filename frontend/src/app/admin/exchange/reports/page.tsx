@@ -19,7 +19,7 @@ import {
   Globe, Activity, Users, AlertTriangle, DollarSign, TrendingUp,
   TrendingDown, Download, Calendar, RefreshCw, BarChart3, PieChart as PieChartIcon,
   LineChart as LineChartIcon, FileText, Percent, XCircle, CheckCircle,
-  ArrowUpDown,
+  ArrowUpDown, LucideIcon,
 } from "lucide-react"
 
 const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#f97316"]
@@ -38,7 +38,7 @@ function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-ZA", { day: "numeric", month: "short", year: "numeric" })
 }
 
-function KpiCard({ label, value, icon: Icon, color, sub }: { label: string; value: string; icon: React.ElementType; color: string; sub?: string }) {
+function KpiCard({ label, value, icon: Icon, color, sub }: { label: string; value: string; icon: LucideIcon; color: string; sub?: string }) {
   return (
     <Card className="rounded-2xl bg-background/95 backdrop-blur-xl border-0 shadow-md">
       <CardContent className="p-5">
@@ -132,7 +132,7 @@ function ReportTab({ report }: { report: FxReport | null }) {
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
               <PieChart>
-                <Pie data={report.currencyUsage} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="volume" nameKey="currency" label={({ currency, percent }) => `${currency} ${(percent * 100).toFixed(0)}%`}>
+                <Pie data={report.currencyUsage} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={3} dataKey="volume" nameKey="currency" label={(entry) => { const p = entry as { currency?: string; percent?: number }; return `${p.currency ?? ""} ${((p.percent ?? 0) * 100).toFixed(0)}%` }}>
                   {report.currencyUsage.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
                 </Pie>
                 <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />

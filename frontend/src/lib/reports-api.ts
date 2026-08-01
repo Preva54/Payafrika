@@ -223,7 +223,7 @@ export const reportsApi = {
     api.get<{ insights: AiInsight[] }>("/reports/ai/insights"),
 
   executiveSummary: () =>
-    api.get<{ summary: string; metrics: unknown; topMetric: string; topValue: string }>("/reports/ai/executive-summary"),
+    api.get<{ summary: string; metrics: Record<string, unknown>; topMetric: string; topValue: string }>("/reports/ai/executive-summary"),
 
   forecast: (months = 3) =>
     api.get<{ forecasts: unknown[] }>(`/reports/ai/forecast?months=${months}`),

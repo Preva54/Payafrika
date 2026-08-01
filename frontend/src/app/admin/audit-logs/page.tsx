@@ -15,7 +15,7 @@ import {
   Shield, ShieldAlert, AlertTriangle, AlertCircle, CheckCircle, XCircle,
   Info, ChevronDown, ChevronUp, ChevronLeft, ChevronRight,
   Users, Activity, Globe, Monitor, Smartphone, Laptop,
-  Fingerprint, MapPin, Flag, Eye, FileDown,
+  Fingerprint, MapPin, Flag, Eye, FileDown, LucideIcon,
 } from "lucide-react"
 
 const severityColor: Record<string, string> = {
@@ -38,7 +38,7 @@ const modules = ["Authentication", "User Management", "Admin", "KYC", "Loans", "
 const severities = ["info", "low", "medium", "high", "critical"]
 
 function StatsCard({ label, value, icon: Icon, color, loading }: {
-  label: string; value: number; icon: React.ElementType; color: string; loading?: boolean
+  label: string; value: number; icon: LucideIcon; color: string; loading?: boolean
 }) {
   const [display, setDisplay] = useState(0)
   useEffect(() => {

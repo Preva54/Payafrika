@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
+import { motion, AnimatePresence, type Variants } from "framer-motion"
 import {
   Plus, RefreshCw, Wallet, TrendingUp, CreditCard, Shield, ArrowRight, Check, X,
   Building2, Briefcase, Ambulance, Car, Wrench, ShoppingBag, Home, GraduationCap,
@@ -54,12 +54,12 @@ const loanTypes = [
   { id: "refinance", label: "Refinance", icon: RotateCcw, gradient: "from-teal-600 to-teal-400" },
 ]
 
-const pageVariants = {
+const pageVariants: Variants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1, transition: { staggerChildren: 0.08 } },
 }
 
-const itemVariants = {
+const itemVariants: Variants = {
   hidden: { y: 20, opacity: 0 },
   visible: { y: 0, opacity: 1, transition: { type: "spring", stiffness: 100 } },
 }

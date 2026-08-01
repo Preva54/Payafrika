@@ -12,7 +12,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { rbacApi, type RoleDefinition, type Permission, type UserAssignment, type Invitation, type RoleDashboard } from "@/lib/rbac-api"
-import { Shield, Users, UserPlus, Settings, Copy, Plus, Pencil, Trash2, RefreshCw, Search, Check, X, Mail, Clock, Globe, Monitor, Smartphone, Laptop, Key, Fingerprint, Calendar, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight } from "lucide-react"
+import { Shield, Users, UserPlus, Settings, Copy, Plus, Pencil, Trash2, RefreshCw, Search, Check, X, Mail, Clock, Globe, Monitor, Smartphone, Laptop, Key, Fingerprint, Calendar, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, LucideIcon } from "lucide-react"
 
 const moduleIcons: Record<string, typeof Shield> = {
   dashboard: Monitor, users: Users, roles: Shield, payments: Globe,
@@ -127,7 +127,7 @@ function StatsCard({
 }: {
   label: string
   value: number
-  icon: React.ElementType
+  icon: LucideIcon
   delay: number
 }) {
   return (

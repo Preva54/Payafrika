@@ -41,6 +41,7 @@ export function SupportTicketsTab() {
     priority: "",
     category: "",
     search: "",
+    page: 1,
   })
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showTicketDetail, setShowTicketDetail] = useState(false)

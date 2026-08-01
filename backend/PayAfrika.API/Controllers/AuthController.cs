@@ -32,7 +32,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
-    public async Task<ActionResult<AuthResponse>> Login([FromBody] LoginRequest request)
+    public async Task<ActionResult<LoginResult>> Login([FromBody] LoginRequest request)
     {
         try
         {
@@ -42,6 +42,42 @@ public class AuthController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return Unauthorized(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("login/verify")]
+    public async Task<ActionResult<AuthResponse>> VerifyLogin([FromBody] LoginVerifyRequest request)
+    {
+        try
+        {
+            var response = await _authService.VerifyLoginAsync(request);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    [HttpPost("login/resend")]
+    public async Task<ActionResult<LoginChallengeResponse>> ResendLoginCode([FromBody] LoginResendRequest request)
+    {
+        try
+        {
+            var response = await _authService.ResendLoginCodeAsync(request.ChallengeId);
+            return Ok(response);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
         }
     }
 
@@ -74,21 +110,46 @@ public class AuthController : ControllerBase
     [HttpPost("verify-email")]
     public async Task<ActionResult> VerifyEmail([FromBody] VerifyEmailRequest request)
     {
-        var result = await _authService.VerifyEmailAsync(request.Email, request.Code);
-        return Ok(new { success = result });
+        try
+        {
+            var result = await _authService.VerifyEmailAsync(request.Email, request.Code);
+            return Ok(new { success = result });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPost("forgot-password")]
     public async Task<ActionResult> ForgotPassword([FromBody] ForgotPasswordRequest request)
     {
-        var result = await _authService.ForgotPasswordAsync(request.Email);
-        return Ok(new { success = result });
+        try
+        {
+            var result = await _authService.ForgotPasswordAsync(request.Email);
+            return Ok(new { success = result });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPost("reset-password")]
     public async Task<ActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
     {
-        var result = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
-        return Ok(new { success = result });
+        try
+        {
+            var result = await _authService.ResetPasswordAsync(request.Token, request.NewPassword);
+            return Ok(new { success = result });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
     }
 }

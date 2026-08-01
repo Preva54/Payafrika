@@ -24,7 +24,7 @@ import { Progress } from "@/components/ui/progress"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { walletApi, depositsApi, type WalletOverviewResponse, type DepositResponse } from "@/lib/api"
-import { cn } from "@/lib/utils"
+import { cn, formatCurrency } from "@/lib/utils"
 
 const COMPANY_BANK = {
   bankName: "ABC Bank",

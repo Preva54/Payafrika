@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 import { ReactNode } from "react"
 
 interface SectionWrapperProps {
-  title: string
+  title?: string
   description?: string
   children: ReactNode
   className?: string

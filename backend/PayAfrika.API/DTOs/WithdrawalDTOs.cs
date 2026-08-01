@@ -66,6 +66,12 @@ public class SubmitWithdrawalRequest
 
     [MaxLength(200)]
     public string? CustomerReference { get; set; }
+
+    [MaxLength(500)]
+    public string? OtpChallengeId { get; set; }
+
+    [MaxLength(20)]
+    public string? OtpCode { get; set; }
 }
 
 public class RejectWithdrawalRequest

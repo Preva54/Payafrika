@@ -70,8 +70,14 @@ export default function BeneficiariesPage() {
                         {b.name.split(" ").map(n => n[0]).join("")}
                       </div>
                       <div className="min-w-0">
-                        <p className="font-medium text-sm">{b.name}</p>
+                        <p className="font-medium text-sm">{b.nickname || b.name}</p>
+                        {b.nickname && <p className="text-xs text-muted-foreground">{b.name}</p>}
                         <p className="text-xs text-muted-foreground font-mono">{b.accountNumber || "No account"}</p>
+                        {b.lastUsedAt && (
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            Last used {new Date(b.lastUsedAt).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" })}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-2">

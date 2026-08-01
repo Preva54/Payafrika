@@ -353,9 +353,18 @@ public class WalletController : ControllerBase
         return Ok(txns.Select(t => new WalletNotificationResponse
         {
             Id = $"notif-{t.Id}",
-            Title = t.Type switch { "deposit" => "Deposit Received", "withdrawal" => "Withdrawal Successful", "transfer" => "Transfer Completed", "exchange" => "Exchange Completed", "payment" => "Payment Sent", _ => "Transaction Updated" },
-            Message = $"{t.Type switch { "deposit" => "Received", "withdrawal" => "Withdrew", _ => "Processed" }} R {t.Amount:N2}",
-            Type = t.Status == "completed" ? "success" : t.Status == "pending" ? "info" : "warning",
+            Title = t.Type switch
+            {
+                "deposit" => "Deposit Received",
+                "withdrawal" => "Withdrawal Successful",
+                "bank_transfer" => t.Status is "failed" or "reversed" ? "Transfer Alert" : "Debit Alert",
+                "transfer" => "Transfer Completed",
+                "exchange" => "Exchange Completed",
+                "payment" => "Payment Sent",
+                _ => "Transaction Updated"
+            },
+            Message = $"{t.Type switch { "deposit" => "Received", "withdrawal" => "Withdrew", "bank_transfer" => "Transfer to", _ => "Processed" }} {t.Currency} {t.Amount:N2}{(!string.IsNullOrEmpty(t.Description) && t.Type == "bank_transfer" ? " — " + t.Description.Replace("Transfer to ", "") : "")}",
+            Type = t.Status == "completed" || t.Status == "successful" ? "success" : t.Status is "failed" or "reversed" ? "warning" : "info",
             Read = false,
             CreatedAt = t.CreatedAt,
         }).ToList());

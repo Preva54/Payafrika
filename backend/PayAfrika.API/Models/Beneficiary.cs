@@ -26,6 +26,11 @@ public class Beneficiary
     public bool IsVerified { get; set; }
     public bool IsFavorite { get; set; }
 
+    [MaxLength(200)]
+    public string? Nickname { get; set; }
+
+    public DateTime? LastUsedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [JsonIgnore]

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
-import { countriesApi, banksApi, type Country, type BankListResponse } from "@/lib/api"
+import { countriesApi, banksApi, adminTransfersApi, type Country, type BankListResponse, type TransferSettingsResponse } from "@/lib/api"
 
 export default function TransferConfigPage() {
   const [countries, setCountries] = useState<Country[]>([])
@@ -25,6 +25,9 @@ export default function TransferConfigPage() {
   const [newCountryCode, setNewCountryCode] = useState("")
   const [newBankName, setNewBankName] = useState("")
   const [newBankCode, setNewBankCode] = useState("")
+  const [settings, setSettings] = useState<TransferSettingsResponse | null>(null)
+  const [settingsSaved, setSettingsSaved] = useState(false)
+  const [settingsError, setSettingsError] = useState("")
 
   const fetchData = async () => {
     setLoading(true)
@@ -39,7 +42,33 @@ export default function TransferConfigPage() {
     setLoading(false)
   }
 
-  useEffect(() => { fetchData() }, [])
+  useEffect(() => {
+    fetchData()
+    adminTransfersApi.getSettings().then(setSettings).catch(() => setSettings(null))
+  }, [])
+
+  const handleSaveSettings = async () => {
+    if (!settings) return
+    setSettingsError("")
+    try {
+      const updated = await adminTransfersApi.updateSettings({
+        feeType: settings.feeType,
+        feeRate: Number(settings.feeRate),
+        feeFlat: Number(settings.feeFlat),
+        vatRate: Number(settings.vatRate),
+        minAmount: Number(settings.minAmount),
+        maxAmount: Number(settings.maxAmount),
+        dailyLimit: Number(settings.dailyLimit),
+        maxDailyTransfers: Number(settings.maxDailyTransfers),
+        estimatedArrival: settings.estimatedArrival,
+      })
+      setSettings(updated)
+      setSettingsSaved(true)
+      setTimeout(() => setSettingsSaved(false), 3000)
+    } catch {
+      setSettingsError("Failed to save settings. Check your values and try again.")
+    }
+  }
 
   const handleToggleCountry = async (country: Country) => {
     try {
@@ -182,6 +211,86 @@ export default function TransferConfigPage() {
           </CardContent>
         </Card>
       </div>
+
+      {settings && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2"><ShieldCheck className="h-5 w-5" />Transfer Fees & Limits</CardTitle>
+            <div className="flex items-center gap-2">
+              {settingsSaved && <Badge variant="success">Saved</Badge>}
+              {settingsError && <span className="text-xs text-destructive">{settingsError}</span>}
+              <Button size="sm" onClick={handleSaveSettings}>Save Settings</Button>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <Label>Fee Type</Label>
+                <Select
+                  value={settings.feeType}
+                  onValueChange={v => setSettings(s => s ? { ...s, feeType: v } : s)}
+                >
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="percent">Percent (%)</SelectItem>
+                    <SelectItem value="flat">Flat (fixed)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <Label>Fee Rate (%)</Label>
+                <Input type="number" step="0.01" min="0" value={settings.feeRate}
+                  onChange={e => setSettings(s => s ? { ...s, feeRate: Number(e.target.value) } : s)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Flat Fee</Label>
+                <Input type="number" step="0.01" min="0" value={settings.feeFlat}
+                  onChange={e => setSettings(s => s ? { ...s, feeFlat: Number(e.target.value) } : s)} />
+              </div>
+              <div className="space-y-1">
+                <Label>VAT Rate (%)</Label>
+                <Input type="number" step="0.01" min="0" value={settings.vatRate}
+                  onChange={e => setSettings(s => s ? { ...s, vatRate: Number(e.target.value) } : s)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Min Amount</Label>
+                <Input type="number" min="0" value={settings.minAmount}
+                  onChange={e => setSettings(s => s ? { ...s, minAmount: Number(e.target.value) } : s)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Max Amount</Label>
+                <Input type="number" min="0" value={settings.maxAmount}
+                  onChange={e => setSettings(s => s ? { ...s, maxAmount: Number(e.target.value) } : s)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Daily Limit</Label>
+                <Input type="number" min="0" value={settings.dailyLimit}
+                  onChange={e => setSettings(s => s ? { ...s, dailyLimit: Number(e.target.value) } : s)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Max Transfers / Day</Label>
+                <Input type="number" min="1" value={settings.maxDailyTransfers}
+                  onChange={e => setSettings(s => s ? { ...s, maxDailyTransfers: Number(e.target.value) } : s)} />
+              </div>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <Label>Estimated Arrival Message</Label>
+                <Input value={settings.estimatedArrival}
+                  onChange={e => setSettings(s => s ? { ...s, estimatedArrival: e.target.value } : s)} />
+              </div>
+              <div className="space-y-1">
+                <Label>Blacklisted Accounts (comma separated)</Label>
+                <Input value={settings.blacklistedAccounts}
+                  onChange={e => setSettings(s => s ? { ...s, blacklistedAccounts: e.target.value } : s)} />
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Fees are charged to the sender. Daily limits apply per user, per country.
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
       {showAddCountry && (
         <Card className="border-primary">

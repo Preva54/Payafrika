@@ -31,6 +31,13 @@ public class LoginRequest
     public string Password { get; set; } = string.Empty;
 }
 
+public class LoginResult
+{
+    public bool RequiresChallenge { get; set; }
+    public AuthResponse? Auth { get; set; }
+    public LoginChallengeResponse? Challenge { get; set; }
+}
+
 public class AuthResponse
 {
     public string Token { get; set; } = string.Empty;

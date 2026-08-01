@@ -2,12 +2,12 @@
 
 import { useRef } from "react"
 import { motion, useInView } from "framer-motion"
-import { UserPlus, ShieldCheck, FileText, CheckCircle, Rocket } from "lucide-react"
+import { UserPlus, ShieldCheck, FileText, CheckCircle, Rocket, LucideIcon } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { timelineSteps } from "@/data/mock-data"
 import { cn } from "@/lib/utils"
 
-const iconMap: Record<string, React.ElementType> = {
+const iconMap: Record<string, LucideIcon> = {
   UserPlus, ShieldCheck, FileText, CheckCircle, Rocket,
 }
 

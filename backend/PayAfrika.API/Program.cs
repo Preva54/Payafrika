@@ -6,6 +6,7 @@ using PayAfrika.API.Data;
 using PayAfrika.API.Middleware;
 using PayAfrika.API.Services;
 using PayAfrika.API.Services.Payment;
+using PayAfrika.API.Services.Security;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -50,12 +51,22 @@ builder.Services.AddScoped<IExchangeRateService, ExchangeRateService>();
 builder.Services.AddScoped<IFxAuditService, FxAuditService>();
   builder.Services.AddScoped<IBankVerificationService, BankVerificationService>();
   builder.Services.AddScoped<IBankVerificationProvider, SimulatorBankVerificationProvider>();
+  builder.Services.AddScoped<ITransferService, TransferService>();
+  builder.Services.AddScoped<ITransferProvider, SimulatorTransferProvider>();
+builder.Services.AddScoped<ITotpService, TotpService>();
+builder.Services.AddScoped<ISecurityService, SecurityService>();
+builder.Services.AddScoped<IDeviceFingerprintService, DeviceFingerprintService>();
+builder.Services.AddScoped<ILoginRiskService, LoginRiskService>();
+builder.Services.AddScoped<IEmailService, EmailService>();
+builder.Services.AddScoped<ISmsService, SmsService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.Configure<FlutterwaveSettings>(builder.Configuration.GetSection("Payment:Flutterwave"));
 builder.Services.Configure<PaystackSettings>(builder.Configuration.GetSection("Payment:Paystack"));
 builder.Services.Configure<OzowSettings>(builder.Configuration.GetSection("Payment:Ozow"));
 builder.Services.Configure<PeachPaymentsSettings>(builder.Configuration.GetSection("Payment:Peach"));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection("Security:Email"));
+builder.Services.Configure<SmsOptions>(builder.Configuration.GetSection("Security:Sms"));
 
 builder.Services.AddHttpClient<FlutterwaveProvider>();
 builder.Services.AddHttpClient<PaystackProvider>();
@@ -110,6 +121,35 @@ using (var scope = app.Services.CreateScope())
     db.Database.EnsureCreated();
 
     db.Database.ExecuteSqlRaw(@"
+        CREATE TABLE IF NOT EXISTS ""BankTransfers"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id""),
+            ""Reference"" VARCHAR(50) NOT NULL,
+            ""CountryCode"" VARCHAR(3) NOT NULL,
+            ""BankCode"" VARCHAR(50) NULL,
+            ""BankName"" VARCHAR(200) NULL,
+            ""AccountNumber"" VARCHAR(50) NOT NULL,
+            ""AccountName"" VARCHAR(200) NULL,
+            ""Amount"" DECIMAL(18,2) NOT NULL,
+            ""Currency"" VARCHAR(3) NOT NULL DEFAULT 'NGN',
+            ""Fee"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""Vat"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""TotalDebit"" DECIMAL(18,2) NOT NULL DEFAULT 0,
+            ""Narration"" VARCHAR(500) NULL,
+            ""Status"" VARCHAR(20) NOT NULL DEFAULT 'pending',
+            ""Provider"" VARCHAR(100) NULL,
+            ""ProviderRequestId"" VARCHAR(200) NULL,
+            ""FailureReason"" VARCHAR(500) NULL,
+            ""ReversalReason"" VARCHAR(500) NULL,
+            ""ReversedById"" UUID NULL,
+            ""ReversedAt"" TIMESTAMPTZ NULL,
+            ""CompletedAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS ""IX_BankTransfers_Reference"" ON ""BankTransfers""(""Reference"");
+        CREATE INDEX IF NOT EXISTS ""IX_BankTransfers_UserId"" ON ""BankTransfers""(""UserId"");
+        CREATE INDEX IF NOT EXISTS ""IX_BankTransfers_Status"" ON ""BankTransfers""(""Status"");
+
         CREATE TABLE IF NOT EXISTS ""Beneficiaries"" (
             ""Id"" UUID PRIMARY KEY,
             ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id""),
@@ -122,6 +162,8 @@ using (var scope = app.Services.CreateScope())
             ""IsFavorite"" BOOLEAN NOT NULL DEFAULT FALSE,
             ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
         );
+        ALTER TABLE ""Beneficiaries"" ADD COLUMN IF NOT EXISTS ""Nickname"" VARCHAR(200) NULL;
+        ALTER TABLE ""Beneficiaries"" ADD COLUMN IF NOT EXISTS ""LastUsedAt"" TIMESTAMPTZ NULL;
         CREATE TABLE IF NOT EXISTS ""ScheduledPayments"" (
             ""Id"" UUID PRIMARY KEY,
             ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id""),
@@ -331,6 +373,60 @@ using (var scope = app.Services.CreateScope())
         CREATE INDEX IF NOT EXISTS ""IX_ActivityLogs_UserId"" ON ""ActivityLogs""(""UserId"");
         CREATE INDEX IF NOT EXISTS ""IX_ActivityLogs_CreatedAt"" ON ""ActivityLogs""(""CreatedAt"");
         CREATE INDEX IF NOT EXISTS ""IX_ActivityLogs_Category"" ON ""ActivityLogs""(""Category"");
+
+        ALTER TABLE ""ConnectedDevices"" ADD COLUMN IF NOT EXISTS ""DeviceId"" VARCHAR(200) NULL;
+        ALTER TABLE ""ConnectedDevices"" ADD COLUMN IF NOT EXISTS ""ScreenResolution"" VARCHAR(30) NULL;
+        ALTER TABLE ""ConnectedDevices"" ADD COLUMN IF NOT EXISTS ""BrowserLanguage"" VARCHAR(20) NULL;
+        ALTER TABLE ""ConnectedDevices"" ADD COLUMN IF NOT EXISTS ""TimeZone"" VARCHAR(100) NULL;
+        ALTER TABLE ""ConnectedDevices"" ADD COLUMN IF NOT EXISTS ""RiskScore"" INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE ""ConnectedDevices"" ADD COLUMN IF NOT EXISTS ""LastLoginAt"" TIMESTAMPTZ NULL;
+        ALTER TABLE ""ConnectedDevices"" ADD COLUMN IF NOT EXISTS ""LastLoginLocation"" VARCHAR(200) NULL;
+        CREATE INDEX IF NOT EXISTS ""IX_ConnectedDevices_DeviceId"" ON ""ConnectedDevices""(""DeviceId"");
+
+        ALTER TABLE ""ActivityLogs"" ADD COLUMN IF NOT EXISTS ""DeviceId"" VARCHAR(200) NULL;
+        ALTER TABLE ""ActivityLogs"" ADD COLUMN IF NOT EXISTS ""RiskScore"" INTEGER NULL;
+        ALTER TABLE ""ActivityLogs"" ADD COLUMN IF NOT EXISTS ""SessionId"" VARCHAR(100) NULL;
+        ALTER TABLE ""ActivityLogs"" ADD COLUMN IF NOT EXISTS ""Outcome"" VARCHAR(20) NULL;
+        ALTER TABLE ""ActivityLogs"" ADD COLUMN IF NOT EXISTS ""FailureReason"" VARCHAR(500) NULL;
+
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""TwoFactorMethod"" VARCHAR(20) NOT NULL DEFAULT 'none';
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""TotpSecretEncrypted"" VARCHAR(500) NULL;
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""BackupCodesHash"" VARCHAR(1000) NULL;
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""FailedLoginCount"" INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""LockedUntil"" TIMESTAMPTZ NULL;
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""IsPhoneVerified"" BOOLEAN NOT NULL DEFAULT FALSE;
+
+        CREATE TABLE IF NOT EXISTS ""SecurityTokens"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""Purpose"" VARCHAR(30) NOT NULL,
+            ""Channel"" VARCHAR(20) NOT NULL,
+            ""CodeHash"" VARCHAR(500) NOT NULL,
+            ""ExpiresAt"" TIMESTAMPTZ NOT NULL,
+            ""Attempts"" INTEGER NOT NULL DEFAULT 0,
+            ""MaxAttempts"" INTEGER NOT NULL DEFAULT 5,
+            ""ResentCount"" INTEGER NOT NULL DEFAULT 0,
+            ""IsConsumed"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""VerifiedAt"" TIMESTAMPTZ NULL,
+            ""Metadata"" TEXT NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_SecurityTokens_UserId_Purpose"" ON ""SecurityTokens""(""UserId"", ""Purpose"");
+        CREATE INDEX IF NOT EXISTS ""IX_SecurityTokens_ExpiresAt"" ON ""SecurityTokens""(""ExpiresAt"");
+        CREATE INDEX IF NOT EXISTS ""IX_SecurityTokens_IsConsumed"" ON ""SecurityTokens""(""IsConsumed"");
+
+        CREATE TABLE IF NOT EXISTS ""InAppNotifications"" (
+            ""Id"" UUID PRIMARY KEY,
+            ""UserId"" UUID NOT NULL REFERENCES ""Users""(""Id"") ON DELETE CASCADE,
+            ""Type"" VARCHAR(50) NOT NULL DEFAULT 'info',
+            ""Title"" VARCHAR(200) NOT NULL,
+            ""Message"" VARCHAR(1000) NOT NULL,
+            ""IsRead"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""ReadAt"" TIMESTAMPTZ NULL,
+            ""CreatedAt"" TIMESTAMPTZ NOT NULL DEFAULT NOW()
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_InAppNotifications_UserId"" ON ""InAppNotifications""(""UserId"");
+        CREATE INDEX IF NOT EXISTS ""IX_InAppNotifications_CreatedAt"" ON ""InAppNotifications""(""CreatedAt"");
 
         CREATE TABLE IF NOT EXISTS ""AuditLogs"" (
             ""Id"" UUID PRIMARY KEY,

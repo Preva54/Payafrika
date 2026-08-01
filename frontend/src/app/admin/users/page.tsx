@@ -84,7 +84,7 @@ export default function AdminUsersPage() {
   const [activity, setActivity] = useState<UserActivity[]>([])
   const [devices, setDevices] = useState<UserDevice[]>([])
   const [transactions, setTransactions] = useState<UserTransaction[]>([])
-  const [analytics, setAnalytics] = useState<{ dau: number; wau: number; mau: number; monthlyNew: { date: string; count: number }[]; countryDist: { label: string; value: number }[] } | null>(null)
+  const [analytics, setAnalytics] = useState<{ dau: number; wau: number; mau: number; total: number; monthlyNew: { date: string; count: number }[]; countryDist: { label: string; value: number }[] } | null>(null)
   const [confirmAction, setConfirmAction] = useState<{ action: string; ids: string[] } | null>(null)
   const [showInvite, setShowInvite] = useState(false)
   const [inviteForm, setInviteForm] = useState({ email: "", fullName: "", role: "customer", country: "" })

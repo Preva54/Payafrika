@@ -18,6 +18,7 @@ public class AppDbContext : DbContext
     public DbSet<Country> Countries => Set<Country>();
     public DbSet<Bank> Banks => Set<Bank>();
     public DbSet<BankVerification> BankVerifications => Set<BankVerification>();
+    public DbSet<BankTransfer> BankTransfers => Set<BankTransfer>();
 
     public DbSet<SupportTicket> SupportTickets => Set<SupportTicket>();
     public DbSet<ChatMessage> ChatMessages => Set<ChatMessage>();
@@ -34,6 +35,8 @@ public class AppDbContext : DbContext
     public DbSet<ConnectedDevice> ConnectedDevices => Set<ConnectedDevice>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<SecurityToken> SecurityTokens => Set<SecurityToken>();
+    public DbSet<InAppNotification> InAppNotifications => Set<InAppNotification>();
     public DbSet<Integration> Integrations => Set<Integration>();
     public DbSet<KycApplication> KycApplications => Set<KycApplication>();
     public DbSet<KycDocument> KycDocuments => Set<KycDocument>();
@@ -170,6 +173,17 @@ public class AppDbContext : DbContext
             entity.HasOne(bv => bv.User)
                   .WithMany(u => u.BankVerifications)
                   .HasForeignKey(bv => bv.UserId);
+        });
+
+        modelBuilder.Entity<BankTransfer>(entity =>
+        {
+            entity.HasOne(t => t.User)
+                  .WithMany()
+                  .HasForeignKey(t => t.UserId);
+
+            entity.HasIndex(t => t.UserId);
+            entity.HasIndex(t => t.Status);
+            entity.HasIndex(t => t.Reference).IsUnique();
         });
 
         modelBuilder.Entity<SupportTicket>(entity =>

@@ -8,13 +8,13 @@ import {
   LayoutDashboard, Users, HandCoins, CreditCard, Shield, 
   Ticket, FileText, ScrollText, UsersRound, KeyRound,
   BarChart3, Settings, LogOut, ChevronDown, ChevronRight,
-  RefreshCw, Globe, Activity, Link2, Landmark, ArrowUpRight,
+  RefreshCw, Globe, Activity, Link2, Landmark, ArrowUpRight, LucideIcon,
 } from "lucide-react"
 import { useState } from "react"
 
 interface NavSection {
   label: string
-  items: { label: string; href: string; icon: React.ElementType }[]
+  items: { label: string; href: string; icon: LucideIcon }[]
 }
 
 const navSections: NavSection[] = [

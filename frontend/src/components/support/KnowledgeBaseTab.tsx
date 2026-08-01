@@ -243,7 +243,8 @@ function ArticleCard({ article, featured }: { article: KnowledgeBaseArticle; fea
 
 function getCategoryIcon(category: string) {
   const cat = CATEGORIES.find((c) => c.key === category)
-  return cat ? getIcon(cat.icon) : getIcon("HelpCircle")
+  if (!cat) return getIcon("HelpCircle")
+  return typeof cat.icon === "string" ? getIcon(cat.icon) : cat.icon
 }
 
 function getIcon(name: string) {

@@ -11,27 +11,46 @@ async function request<T>(endpoint: string, options: ApiOptions = {}): Promise<T
 
   const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
 
+  const isForm = typeof FormData !== "undefined" && body instanceof FormData
+
   const config: RequestInit = {
     method,
     headers: {
-      "Content-Type": "application/json",
+      ...(!isForm ? { "Content-Type": "application/json" } : {}),
+      ...deviceHeaders(),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
   }
 
-  if (body) {
-    config.body = JSON.stringify(body)
+  if (body !== undefined && body !== null) {
+    config.body = isForm ? body : JSON.stringify(body)
   }
 
   const response = await fetch(`${API_URL}${endpoint}`, config)
 
   if (!response.ok) {
     const error = await response.json().catch(() => ({ error: "An error occurred" }))
-    throw new Error(error.error || `HTTP ${response.status}`)
+    const err = new Error(error.error || `HTTP ${response.status}`) as Error & { status?: number; data?: unknown }
+    err.status = response.status
+    err.data = error
+    throw err
   }
 
   return response.json()
+}
+
+function deviceHeaders(): Record<string, string> {
+  if (typeof window === "undefined") return {}
+  const headers: Record<string, string> = {}
+  const stored = localStorage.getItem("device_id")
+  const deviceId = stored || crypto.randomUUID()
+  if (!stored) localStorage.setItem("device_id", deviceId)
+  headers["X-Device-Id"] = deviceId
+  headers["X-Screen-Resolution"] = `${window.screen?.width || 0}x${window.screen?.height || 0}`
+  headers["X-Timezone"] = Intl.DateTimeFormat().resolvedOptions().timeZone || ""
+  headers["Accept-Language"] = navigator.language || ""
+  return headers
 }
 
 async function requestBlob(endpoint: string): Promise<Blob> {
@@ -45,9 +64,10 @@ async function requestBlob(endpoint: string): Promise<Blob> {
 
 export const api = {
   get: <T>(endpoint: string) => request<T>(endpoint),
-  post: <T>(endpoint: string, body: unknown) => request<T>(endpoint, { method: "POST", body }),
-  put: <T>(endpoint: string, body: unknown) => request<T>(endpoint, { method: "PUT", body }),
-  patch: <T>(endpoint: string, body: unknown) => request<T>(endpoint, { method: "PATCH", body }),
+  post: <T>(endpoint: string, body?: unknown, options?: { headers?: Record<string, string> }) =>
+    request<T>(endpoint, { method: "POST", body, ...(options ?? {}) }),
+  put: <T>(endpoint: string, body?: unknown) => request<T>(endpoint, { method: "PUT", body }),
+  patch: <T>(endpoint: string, body?: unknown) => request<T>(endpoint, { method: "PATCH", body }),
   delete: <T>(endpoint: string) => request<T>(endpoint, { method: "DELETE" }),
   getBlob: (endpoint: string) => requestBlob(endpoint),
 }
@@ -57,6 +77,62 @@ export interface AuthResponse {
   refreshToken: string
   expiresAt: string
   user: UserInfo
+}
+
+export interface LoginChallenge {
+  requiresOtp: boolean
+  challengeId: string
+  channel: string
+  expiresInSeconds: number
+  maxAttempts: number
+  message: string
+  riskScore: number
+  isNewDevice: boolean
+  newDeviceDisplayName?: string
+  recoveryCodeHint?: string
+}
+
+export interface LoginResult {
+  requiresChallenge: boolean
+  auth?: AuthResponse
+  challenge?: LoginChallenge
+}
+
+export interface OtpSendResponse {
+  message: string
+  expiresInSeconds: number
+  attemptsRemaining?: number
+}
+
+export interface OtpVerifyResult {
+  success: boolean
+  challengeId?: string
+  attemptsRemaining: number
+  message: string
+}
+
+export interface SecurityOverview {
+  twoFactorEnabled: boolean
+  twoFactorMethod: string
+  isPhoneVerified: boolean
+  isEmailVerified: boolean
+  securityScore: number
+  trustedDevicesCount: number
+  activeSessionsCount: number
+  unreadSecurityAlerts: number
+  lastLoginAt: string | null
+  lastLoginLocation: string | null
+  failedLoginCount: number
+  hasRecoveryCodes: boolean
+}
+
+export interface SecurityNotification {
+  id: string
+  type: string
+  title: string
+  message: string
+  isRead: boolean
+  createdAt: string
 }
 
 export interface UserInfo {
@@ -284,7 +360,17 @@ export const authApi = {
   register: (data: { fullName: string; email: string; password: string; phoneNumber?: string; country?: string; role?: string }) =>
     api.post<AuthResponse>("/auth/register", data),
   login: (data: { email: string; password: string }) =>
-    api.post<AuthResponse>("/auth/login", data),
+    api.post<LoginResult>("/auth/login", data),
+  verifyLogin: (data: { challengeId: string; code: string }) =>
+    api.post<AuthResponse>("/auth/login/verify", data),
+  resendOtp: (challengeId: string) =>
+    api.post<LoginChallenge>("/auth/login/resend", { challengeId }),
+  verifyEmail: (data: { email: string; code: string }) =>
+    api.post<{ success: boolean }>("/auth/verify-email", data),
+  forgotPassword: (email: string) =>
+    api.post<{ success: boolean }>("/auth/forgot-password", { email }),
+  resetPassword: (data: { token: string; newPassword: string }) =>
+    api.post<{ success: boolean }>("/auth/reset-password", data),
   me: () => api.get<UserInfo>("/auth/me"),
   searchUsers: (query: string, limit = 10) =>
     api.get<UsernameSearchResult[]>(`/auth/search?q=${encodeURIComponent(query)}&limit=${limit}`),
@@ -602,6 +688,8 @@ export interface Beneficiary {
   currency: string
   isVerified: boolean
   isFavorite: boolean
+  nickname?: string
+  lastUsedAt?: string
   createdAt: string
 }
 
@@ -655,6 +743,7 @@ export interface BankListResponse {
    countryCode: string
    name: string
    code?: string
+   isEnabled?: boolean
 }
 
 export interface BankVerificationResponse {
@@ -710,9 +799,7 @@ export interface VerifyAccountRequest {
    countryCode: string
    bankCode: string
    accountNumber: string
-}
-
-export const bankVerificationApi = {
+}export const bankVerificationApi = {
    verifyAccount: (data: VerifyAccountRequest) => api.post<BankVerificationResponse>("/bank-verification/verify", data),
    getBanks: (countryCode: string) => api.get<BankListResponse[]>(`/bank-verification/banks/${countryCode}`),
    getHistory: () => api.get<object[]>("/bank-verification/history"),
@@ -735,8 +822,122 @@ export const banksApi = {
    delete: (id: string) => api.delete(`/banks/${id}`),
 }
 
+export interface InitiateBankTransferRequest {
+   amount: number
+   currency: string
+   countryCode: string
+   bankCode: string
+   accountNumber: string
+   accountName: string
+   narration?: string
+   pin: string
+   otpChallengeId?: string
+   otpCode?: string
+}
+
+export interface TransferQuoteRequest {
+   amount: number
+   countryCode: string
+   currency: string
+}
+
+export interface TransferQuoteResponse {
+   amount: number
+   fee: number
+   vat: number
+   totalDebit: number
+   currency: string
+   estimatedArrival: string
+}
+
+export interface BankTransferResponse {
+   id: string
+   reference: string
+   countryCode: string
+   bankName?: string
+   accountNumber: string
+   accountName?: string
+   amount: number
+   currency: string
+   fee: number
+   vat: number
+   totalDebit: number
+   narration?: string
+   status: string
+   failureReason?: string
+   providerRequestId?: string
+   reversalReason?: string
+   reversedAt?: string
+   completedAt?: string
+   createdAt: string
+}
+
+export interface ReceiveAccountResponse {
+   bankName: string
+   accountNumber: string
+   accountName: string
+   currency: string
+   isSponsorBank: boolean
+}
+
+export interface TransferSettingsResponse {
+   feeType: string
+   feeRate: number
+   feeFlat: number
+   vatRate: number
+   minAmount: number
+   maxAmount: number
+   dailyLimit: number
+   maxDailyTransfers: number
+   blacklistedAccounts: string
+   estimatedArrival: string
+}
+
+export interface TransferStatsResponse {
+   totalTransfers: number
+   successful: number
+   pending: number
+   failed: number
+   reversed: number
+   totalValue: number
+   feesCollected: number
+   failedToday: number
+}
+
+export interface AdminTransferResponse extends BankTransferResponse {
+   userId: string
+   userName: string
+   userEmail: string
+}
+
 export const transfersApi = {
-   initiate: (data: InitiateTransferRequest) => api.post<InitiateTransferResponse>("/wallet/send-bank", data),
+   quote: (data: TransferQuoteRequest) => api.post<TransferQuoteResponse>("/transfers/quote", data),
+   initiate: (data: InitiateBankTransferRequest) => api.post<BankTransferResponse>("/transfers", data),
+   history: () => api.get<BankTransferResponse[]>("/transfers"),
+   get: (id: string) => api.get<BankTransferResponse>(`/transfers/${id}`),
+   reverse: (id: string, reason?: string) => api.post<BankTransferResponse>(`/transfers/${id}/reverse`, { reason }),
+   receiveAccount: () => api.get<ReceiveAccountResponse>("/transfers/receive-account"),
+   pinStatus: () => api.get<{ hasPin: boolean }>("/transfers/pin/status"),
+   setPin: (pin: string) => api.put<{ message: string }>("/transfers/pin", { pin }),
+   sendOtp: () => api.post<OtpSendResponse>("/transfers/otp", { purpose: "transaction" }),
+   verifyOtp: (code: string) => api.post<OtpVerifyResult>("/transfers/otp/verify", { purpose: "transaction", code }),
+   legacySendBank: (data: InitiateTransferRequest) => api.post<InitiateTransferResponse>("/wallet/send-bank", data),
+}
+
+export const adminTransfersApi = {
+   list: (params?: { status?: string; country?: string; search?: string; limit?: number }) => {
+      const sp = new URLSearchParams();
+      if (params) {
+         Object.entries(params).forEach(([key, value]) => {
+            if (value !== undefined && value !== null) sp.append(key, String(value));
+         });
+      }
+      return api.get<AdminTransferResponse[]>(`/admin/transfers?${sp.toString()}`);
+   },
+   stats: () => api.get<TransferStatsResponse>("/admin/transfers/stats"),
+   reverse: (id: string, reason?: string) => api.post<BankTransferResponse>(`/admin/transfers/${id}/reverse`, { reason }),
+   getSettings: () => api.get<TransferSettingsResponse>("/admin/transfers/settings"),
+   updateSettings: (data: Partial<TransferSettingsResponse>) => api.put<TransferSettingsResponse>("/admin/transfers/settings", data),
 }
 
 export const scheduledPaymentsApi = {
@@ -751,7 +952,7 @@ export const exchangeRatesApi = {
   get: () => api.get<ExchangeRate[]>("/exchangerates"),
 }
 
-export interface PaginatedResponse {
+export interface PaginatedResponse<T = unknown> {
   data: T[];
   page: number;
   limit: number;
@@ -839,6 +1040,14 @@ export interface CreateTicketRequest {
   priority?: string;
 }
 
+export interface UpdateTicketRequest {
+  subject?: string;
+  status?: string;
+  priority?: string;
+  category?: string;
+  assignedToId?: string;
+}
+
 export interface SendMessageRequest {
   content: string;
   isInternalNote?: boolean;
@@ -898,7 +1107,7 @@ export const supportApi = {
   },
   getTicket: (id: string) => api.get<SupportTicket & { messages: ChatMessage[] }>(`/support/tickets/${id}`),
   createTicket: (data: CreateTicketRequest) => api.post<SupportTicket>("/support/tickets", data),
-  updateTicket: (id: string, data: Partial<CreateTicketRequest>) => api.patch<SupportTicket>(`/support/tickets/${id}`, data),
+  updateTicket: (id: string, data: UpdateTicketRequest) => api.patch<SupportTicket>(`/support/tickets/${id}`, data),
   addMessage: (id: string, data: SendMessageRequest) => api.post<ChatMessage>(`/support/tickets/${id}/messages`, data),
   markMessageRead: (ticketId: string, messageId: string) => api.post(`/support/tickets/${ticketId}/messages/${messageId}/read`),
   getCategories: () => api.get<SupportCategory[]>("/support/categories"),
@@ -926,7 +1135,7 @@ export const adminSupportApi = {
     return api.get<PaginatedResponse<SupportTicket>>(`/support/tickets?${params.toString()}`);
   },
   getTicket: (id: string) => api.get<SupportTicket & { messages: ChatMessage[] }>(`/support/tickets/${id}`),
-  updateTicket: (id: string, data: Partial<CreateTicketRequest & { assignedToId?: string }>) => api.patch<SupportTicket>(`/support/tickets/${id}`, data),
+  updateTicket: (id: string, data: UpdateTicketRequest) => api.patch<SupportTicket>(`/support/tickets/${id}`, data),
   addMessage: (id: string, data: SendMessageRequest) => api.post<ChatMessage>(`/support/tickets/${id}/messages`, data),
   getStats: () => api.get<TicketStats>("/support/stats"),
 };
@@ -1009,6 +1218,7 @@ export interface PaymentMethod {
   cardholderName?: string;
   isDefault: boolean;
   isVerified: boolean;
+  isVirtual?: boolean;
   createdAt: string;
 }
 
@@ -1138,9 +1348,16 @@ export const settingsApi = {
   updateAvatar: (avatarUrl: string) => api.post<ProfileSettings>("/settings/profile/avatar", { avatarUrl }),
 
   getSecurity: () => api.get<SecuritySettings>("/settings/security"),
+  getSecurityOverview: () => api.get<SecurityOverview>("/settings/security/overview"),
   changePassword: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => api.put("/settings/security/password", data),
-  toggleTwoFactor: (data: { enabled: boolean; code?: string }) => api.put("/settings/security/two-factor", data),
-  setupTwoFactor: () => api.post<TwoFactorSetup>("/settings/security/two-factor/setup"),
+  toggleTwoFactor: (data: { enabled: boolean; code?: string; password?: string }) => api.put("/settings/security/two-factor", data),
+  setupTwoFactor: (method = "authenticator") => api.post<TwoFactorSetup>(`/settings/security/two-factor/setup?method=${method}`),
+  regenerateRecoveryCodes: () => api.post<{ recoveryCodes: string[] }>("/settings/security/two-factor/recovery-codes"),
+  sendOtp: (purpose: string) => api.post<OtpSendResponse>("/settings/otp/send", { purpose }),
+  verifyOtp: (purpose: string, code: string, metadata?: string) => api.post<OtpVerifyResult>("/settings/otp/verify", { purpose, code, metadata }),
+  resendOtp: (purpose: string, challengeId?: string) => api.post<OtpSendResponse>("/settings/otp/resend", { purpose, challengeId }),
+  getSecurityNotifications: () => api.get<SecurityNotification[]>("/settings/security/notifications"),
+  markNotificationsRead: (id?: string) => api.post<null>("/settings/security/notifications/read", id ?? null),
 
   getNotifications: () => api.get<NotificationPreferences>("/settings/notifications"),
   updateNotification: (data: { category: string; channel: string; enabled: boolean }) => api.put("/settings/notifications", data),

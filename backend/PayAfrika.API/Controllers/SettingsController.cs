@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using PayAfrika.API.Data;
 using PayAfrika.API.DTOs;
 using PayAfrika.API.Models;
+using PayAfrika.API.Services.Security;
 
 namespace PayAfrika.API.Controllers;
 
@@ -17,10 +18,12 @@ namespace PayAfrika.API.Controllers;
 public class SettingsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ISecurityService _security;
 
-    public SettingsController(AppDbContext db)
+    public SettingsController(AppDbContext db, ISecurityService security)
     {
         _db = db;
+        _security = security;
     }
 
     [HttpGet("profile")]
@@ -121,6 +124,14 @@ public class SettingsController : ControllerBase
         });
     }
 
+    [HttpGet("security/overview")]
+    public async Task<ActionResult<SecurityOverviewResponse>> GetSecurityOverview()
+    {
+        var userId = GetUserId();
+        var overview = await _security.GetOverviewAsync(userId);
+        return Ok(overview);
+    }
+
     [HttpPut("security/password")]
     public async Task<ActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
     {
@@ -135,11 +146,24 @@ public class SettingsController : ControllerBase
             return BadRequest(new { error = "Current password is incorrect." });
 
         user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.FailedLoginCount = 0;
+        user.LockedUntil = null;
         user.UpdatedAt = DateTime.UtcNow;
         await _db.SaveChangesAsync();
         await LogActivity(userId, "Changed password", "security", "Password changed");
+        await _security.CreateNotificationAsync(userId, "security",
+            "Password changed",
+            "Your password was changed. If this wasn't you, contact support immediately.");
 
         return Ok(new { message = "Password changed successfully." });
+    }
+
+    [HttpPost("security/two-factor/setup")]
+    public async Task<ActionResult<TwoFactorSetupResponse>> SetupTwoFactor([FromQuery] string method = "authenticator")
+    {
+        var userId = GetUserId();
+        var response = await _security.SetupTwoFactorAsync(userId, method);
+        return Ok(response);
     }
 
     [HttpPut("security/two-factor")]
@@ -149,26 +173,110 @@ public class SettingsController : ControllerBase
         var user = await _db.Users.FindAsync(userId);
         if (user == null) return NotFound();
 
-        user.TwoFactorEnabled = request.Enabled;
-        user.UpdatedAt = DateTime.UtcNow;
-        await _db.SaveChangesAsync();
-        await LogActivity(userId, request.Enabled ? "Enabled 2FA" : "Disabled 2FA", "security", "Two-factor authentication updated");
+        if (request.Enabled)
+        {
+            if (string.IsNullOrWhiteSpace(request.Code))
+                return BadRequest(new { error = "Verification code is required." });
 
-        return Ok(new { enabled = user.TwoFactorEnabled });
+            var enableRequest = new TwoFactorEnableRequest
+            {
+                Code = request.Code,
+                Method = user.TwoFactorMethod ?? "authenticator",
+            };
+            await _security.EnableTwoFactorAsync(userId, enableRequest);
+            return Ok(new { enabled = true });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Code))
+            return BadRequest(new { error = "Verification code is required." });
+
+        var disableRequest = new TwoFactorDisableRequest
+        {
+            Password = request.Password ?? "",
+            Code = request.Code,
+        };
+        await _security.DisableTwoFactorAsync(userId, disableRequest);
+        return Ok(new { enabled = false });
     }
 
-    [HttpPost("security/two-factor/setup")]
-    public ActionResult<TwoFactorSetupResponse> SetupTwoFactor()
+    [HttpPost("security/two-factor/recovery-codes")]
+    public async Task<ActionResult<RecoveryCodesResponse>> RegenerateRecoveryCodes()
     {
-        var secretKey = GenerateSecretKey();
-        var recoveryCodes = Enumerable.Range(0, 10).Select(_ => GenerateRecoveryCode()).ToList();
+        var userId = GetUserId();
+        var codes = await _security.RegenerateRecoveryCodesAsync(userId);
+        await LogActivity(userId, "Regenerated recovery codes", "security", "Two-factor recovery codes regenerated");
+        return Ok(new RecoveryCodesResponse { RecoveryCodes = codes });
+    }
 
-        return Ok(new TwoFactorSetupResponse
+    [HttpPost("otp/send")]
+    public async Task<ActionResult> SendOtp([FromBody] OtpSendRequest request)
+    {
+        var userId = GetUserId();
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        var sensitivePurpose = request.Purpose is "withdrawal" or "transaction" or "settings" or "kyc" or "new_device";
+        var channel = sensitivePurpose && user.TwoFactorEnabled && user.TwoFactorMethod != "none"
+            ? user.TwoFactorMethod
+            : "email";
+
+        await _security.CreateAndSendOtpAsync(userId, request.Purpose, channel);
+        return Ok(new { message = "Verification code sent.", expiresInSeconds = 300 });
+    }
+
+    [HttpPost("otp/verify")]
+    public async Task<ActionResult<OtpVerifyResponse>> VerifyOtp([FromBody] OtpVerifyRequest request)
+    {
+        var userId = GetUserId();
+        try
         {
-            SecretKey = secretKey,
-            QrCodeUrl = $"otpauth://totp/PayAfrika:{User.Identity?.Name}?secret={secretKey}&issuer=PayAfrika",
-            RecoveryCodes = recoveryCodes,
-        });
+            var token = await _security.ValidateOtpAsync(userId, request.Purpose, request.Code);
+            return Ok(new OtpVerifyResponse
+            {
+                Success = true,
+                ChallengeId = token.Id.ToString(),
+                AttemptsRemaining = token.MaxAttempts - token.Attempts,
+                Message = "Code verified.",
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            var pending = await _db.SecurityTokens
+                .Where(t => t.UserId == userId && t.Purpose == request.Purpose && !t.IsConsumed)
+                .OrderByDescending(t => t.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            return BadRequest(new OtpVerifyResponse
+            {
+                Success = false,
+                AttemptsRemaining = pending != null ? pending.MaxAttempts - pending.Attempts : 0,
+                Message = ex.Message,
+            });
+        }
+    }
+
+    [HttpPost("otp/resend")]
+    public async Task<ActionResult> ResendOtp([FromBody] OtpResendRequest request)
+    {
+        var userId = GetUserId();
+        var token = await _security.ResendOtpAsync(userId, request.Purpose, request.ChallengeId);
+        return Ok(new { message = "New code sent.", expiresInSeconds = 300, attemptsRemaining = token.MaxAttempts - token.Attempts });
+    }
+
+    [HttpGet("security/notifications")]
+    public async Task<ActionResult<List<SecurityNotification>>> GetSecurityNotifications()
+    {
+        var userId = GetUserId();
+        var notifications = await _security.GetNotificationsAsync(userId);
+        return Ok(notifications);
+    }
+
+    [HttpPost("security/notifications/read")]
+    public async Task<ActionResult> MarkNotificationsRead([FromBody] Guid? id)
+    {
+        var userId = GetUserId();
+        await _security.MarkNotificationsReadAsync(userId, id);
+        return NoContent();
     }
 
     [HttpGet("notifications")]
@@ -872,20 +980,6 @@ public class SettingsController : ControllerBase
         });
 
         await _db.SaveChangesAsync();
-    }
-
-    private static string GenerateSecretKey()
-    {
-        var key = new byte[20];
-        RandomNumberGenerator.Fill(key);
-        return Convert.ToBase64String(key).Replace('+', 'a').Replace('/', 'b').Replace('=', 'c');
-    }
-
-    private static string GenerateRecoveryCode()
-    {
-        var bytes = new byte[6];
-        RandomNumberGenerator.Fill(bytes);
-        return string.Concat(bytes.Select(b => (char)('A' + (b % 26))));
     }
 
     private static string HashString(string input) =>

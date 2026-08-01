@@ -27,7 +27,22 @@ public class User
     public string Role { get; set; } = "customer"; // customer, business, admin
     public string? KYCStatus { get; set; } = "pending"; // pending, verified, rejected
     public bool IsEmailVerified { get; set; }
+    public bool IsPhoneVerified { get; set; }
     public bool TwoFactorEnabled { get; set; }
+
+    [MaxLength(20)]
+    public string TwoFactorMethod { get; set; } = "none"; // none, sms, email, authenticator
+
+    [MaxLength(500)]
+    public string? TotpSecretEncrypted { get; set; }
+
+    [MaxLength(1000)]
+    public string? BackupCodesHash { get; set; }
+
+    public int FailedLoginCount { get; set; }
+
+    public DateTime? LockedUntil { get; set; }
+
     public string? AvatarUrl { get; set; }
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

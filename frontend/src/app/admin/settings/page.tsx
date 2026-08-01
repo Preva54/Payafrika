@@ -18,17 +18,17 @@ import {
   ShieldCheck, AlertTriangle, Percent, ArrowLeftRight, Bell, Mail, MessageSquare,
   Code2, Puzzle, FileText, UsersRound, Search, MapPin, Wrench, HardDrive, Zap,
   Flag, Terminal, RefreshCw, Download, Upload, RotateCcw, History, Check, X,
-  Sun, Moon, ChevronRight, Search as SearchIcon,
+  Sun, Moon, ChevronRight, Search as SearchIcon, LucideIcon,
 } from "lucide-react"
-import { adminSettingsApi, type PlatformSettingsCategory, type PlatformSettingsField, type SettingChangeLogEntry } from "@/lib/admin-settings-api"
+import { adminSettingsApi, type AdminSettingsDashboard, type PlatformSettingsCategory, type PlatformSettingsField, type SettingChangeLogEntry } from "@/lib/admin-settings-api"
 
-const iconMap: Record<string, React.ElementType> = {
+const iconMap: Record<string, LucideIcon> = {
   Globe, Building2, Palette, Key, Shield, CreditCard, Wallet, Store, Users,
   ShieldCheck, AlertTriangle, Percent, ArrowLeftRight, Bell, Mail, MessageSquare,
   Code2, Puzzle, FileText, UsersRound, MapPin, Wrench, HardDrive, Zap, Flag, Terminal,
 }
 
-const categoryIcons: Record<string, React.ElementType> = {
+const categoryIcons: Record<string, LucideIcon> = {
   general: Globe, company: Building2, branding: Palette, authentication: Key,
   security: Shield, payment_gateway: CreditCard, wallet: Wallet, merchant: Store,
   customer: Users, kyc_compliance: ShieldCheck, fraud_risk: AlertTriangle,

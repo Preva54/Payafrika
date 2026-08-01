@@ -16,6 +16,9 @@ public class ConnectedDevice
     [MaxLength(50)]
     public string DeviceType { get; set; } = string.Empty;
 
+    [MaxLength(200)]
+    public string? DeviceId { get; set; }
+
     [MaxLength(100)]
     public string? Browser { get; set; }
 
@@ -28,8 +31,24 @@ public class ConnectedDevice
     [MaxLength(200)]
     public string? Location { get; set; }
 
+    [MaxLength(30)]
+    public string? ScreenResolution { get; set; }
+
+    [MaxLength(20)]
+    public string? BrowserLanguage { get; set; }
+
+    [MaxLength(100)]
+    public string? TimeZone { get; set; }
+
+    public int RiskScore { get; set; }
+
     public bool IsTrusted { get; set; }
     public bool IsCurrent { get; set; }
+
+    public DateTime? LastLoginAt { get; set; }
+
+    [MaxLength(200)]
+    public string? LastLoginLocation { get; set; }
 
     public DateTime LastActiveAt { get; set; } = DateTime.UtcNow;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

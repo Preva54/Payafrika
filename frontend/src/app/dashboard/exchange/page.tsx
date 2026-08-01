@@ -119,7 +119,7 @@ export default function ExchangePage() {
   const [rates, setRates] = useState<ExchangeRateResponse[]>([])
   const [error, setError] = useState("")
   const [submitting, setSubmitting] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout>>()
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const fetchRates = useCallback(async () => {
     try {

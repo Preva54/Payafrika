@@ -51,6 +51,7 @@ export default function AdminTicketsPage() {
     priority: "",
     category: "",
     search: "",
+    page: 1,
   })
   const [showTicketDetail, setShowTicketDetail] = useState(false)
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null)

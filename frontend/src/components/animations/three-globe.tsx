@@ -122,9 +122,7 @@ function CityParticles() {
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
-          count={positions.length / 3}
-          array={positions}
-          itemSize={3}
+          args={[positions, 3]}
         />
       </bufferGeometry>
       <pointsMaterial
@@ -175,23 +173,25 @@ function TradeRoutes() {
     }
   })
 
+  const lines = useMemo(() => {
+    return routes.map((points, idx) => {
+      const positions = points.flatMap((p) => [p.x, p.y, p.z])
+      const geometry = new THREE.BufferGeometry()
+      geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3))
+      const material = new THREE.LineBasicMaterial({
+        color: `hsl(${200 + idx * 20}, 80%, ${60 + idx * 5}%)`,
+        transparent: true,
+        opacity: 0.3 + Math.random() * 0.2,
+      })
+      return new THREE.Line(geometry, material)
+    })
+  }, [routes])
+
   return (
     <group ref={lineRef}>
-      {routes.map((points, idx) => {
-        const positions = points.flatMap((p) => [p.x, p.y, p.z])
-        const geometry = new THREE.BufferGeometry()
-        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3))
-
-        return (
-          <line key={idx} geometry={geometry}>
-            <lineBasicMaterial
-              color={`hsl(${200 + idx * 20}, 80%, ${60 + idx * 5}%)`}
-              transparent
-              opacity={0.3 + Math.random() * 0.2}
-            />
-          </line>
-        )
-      })}
+      {lines.map((line, idx) => (
+        <primitive key={idx} object={line} />
+      ))}
     </group>
   )
 }
@@ -228,15 +228,11 @@ function FloatingParticles({ count = 500 }) {
       <bufferGeometry>
         <bufferAttribute
           attach="attributes-position"
-          count={positions.length / 3}
-          array={positions}
-          itemSize={3}
+          args={[positions, 3]}
         />
         <bufferAttribute
           attach="attributes-size"
-          count={sizes.length}
-          array={sizes}
-          itemSize={1}
+          args={[sizes, 1]}
         />
       </bufferGeometry>
       <pointsMaterial

@@ -10,6 +10,7 @@ using PayAfrika.API.Data;
 using PayAfrika.API.Middleware;
 using PayAfrika.API.Models;
 using PayAfrika.API.Services;
+using PayAfrika.API.Services.Security;
 
 namespace PayAfrika.API.Tests.IntegrationTests;
 
@@ -19,6 +20,7 @@ public abstract class TestBase : IDisposable
     protected readonly IJwtService JwtService;
     protected readonly IAuthService AuthService;
     protected readonly ILoanService LoanService;
+    protected readonly ISecurityService SecurityService;
 
     protected TestBase()
     {
@@ -28,7 +30,8 @@ public abstract class TestBase : IDisposable
 
         Db = new AppDbContext(options);
         JwtService = new TestJwtService();
-        AuthService = new AuthService(Db, JwtService);
+        SecurityService = new SecurityService(Db, new TotpService(), new NoopSmsService(), new NoopEmailService(), new TestAuditService(), JwtService);
+        AuthService = new AuthService(Db, JwtService, SecurityService, new DeviceFingerprintService(), new LoginRiskService(), new TestAuditService(), new NoopEmailService(), new TestHttpContextAccessor());
         LoanService = new LoanService(Db);
     }
 
@@ -126,4 +129,67 @@ public class TestJwtService : IJwtService
             return null;
         }
     }
+}
+
+public class TestHttpContextAccessor : IHttpContextAccessor
+{
+    public HttpContext? HttpContext { get; set; } = BuildContext();
+
+    private static HttpContext BuildContext()
+    {
+        var context = new DefaultHttpContext();
+        context.Request.Headers["X-Device-Id"] = "test-device-1";
+        context.Request.Headers["X-Screen-Resolution"] = "1920x1080";
+        context.Request.Headers.AcceptLanguage = "en-NG";
+        context.Request.Headers["X-Timezone"] = "Africa/Lagos";
+        context.Request.Headers.UserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/126.0 Safari/537.36";
+        return context;
+    }
+}
+
+public class TestAuditService : IAuditService
+{
+    public List<AuditLogEntry> Entries { get; } = new();
+
+    public Task LogAsync(AuditLogEntry entry)
+    {
+        Entries.Add(entry);
+        return Task.CompletedTask;
+    }
+
+    public Task LogSecurityAlertAsync(AuditLogEntry entry)
+    {
+        Entries.Add(entry);
+        return Task.CompletedTask;
+    }
+}
+
+public class NoopSmsService : ISmsService
+{
+    public Task SendOtpAsync(string phoneNumber, string otp, string purpose, string? countryCode = null)
+        => Task.CompletedTask;
+
+    public Task SendGenericAsync(string phoneNumber, string message)
+        => Task.CompletedTask;
+}
+
+public class NoopEmailService : IEmailService
+{
+    public Task SendOtpAsync(string to, string otp, string purpose, string? otpHint = null)
+        => Task.CompletedTask;
+
+    public Task SendPasswordResetAsync(string to, string resetToken, DateTime expiresAt)
+        => Task.CompletedTask;
+
+    public Task SendEmailVerificationAsync(string to, string otp)
+        => Task.CompletedTask;
+
+    public Task SendNewDeviceLoginAsync(string to, string deviceName, string location, string browser, DateTime loggedInAt)
+        => Task.CompletedTask;
+
+    public Task SendSecurityAlertAsync(string to, string subject, string message)
+        => Task.CompletedTask;
+
+    public Task SendGenericEmailAsync(string to, string subject, string title, string body, string ctaText = "", string ctaUrl = "")
+        => Task.CompletedTask;
 }

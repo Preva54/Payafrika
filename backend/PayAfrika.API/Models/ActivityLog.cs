@@ -24,6 +24,11 @@ public class ActivityLog
     [MaxLength(500)]
     public string? UserAgent { get; set; }
 
+    [MaxLength(200)]
+    public string? DeviceId { get; set; }
+
+    public int? RiskScore { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     [ForeignKey(nameof(UserId))]

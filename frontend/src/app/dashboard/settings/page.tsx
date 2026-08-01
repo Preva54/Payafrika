@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { SettingsSidebar } from "@/components/settings/SettingsSidebar"
 import { ProfileSection } from "@/components/settings/sections/ProfileSection"
 import { SecuritySection } from "@/components/settings/sections/SecuritySection"
@@ -42,7 +43,21 @@ const sections: Record<string, React.ReactNode> = {
 }
 
 export default function SettingsPage() {
+  return (
+    <Suspense fallback={null}>
+      <SettingsContent />
+    </Suspense>
+  )
+}
+
+function SettingsContent() {
+  const searchParams = useSearchParams()
   const [activeSection, setActiveSection] = useState("profile")
+
+  useEffect(() => {
+    const section = searchParams.get("section")
+    if (section && sections[section]) setActiveSection(section)
+  }, [searchParams])
 
   return (
     <div className="flex gap-6">

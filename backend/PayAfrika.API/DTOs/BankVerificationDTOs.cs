@@ -77,6 +77,20 @@ public class InitiateTransferRequest
 
     [MaxLength(3)]
     public string? BeneficiaryId { get; set; }
+
+    [MaxLength(500)]
+    public string? OtpChallengeId { get; set; }
+
+    [MaxLength(20)]
+    public string? OtpCode { get; set; }
+}
+
+public class TransactionOtpVerifyResponse
+{
+    public bool Success { get; set; }
+    public string? ChallengeId { get; set; }
+    public int AttemptsRemaining { get; set; }
+    public string Message { get; set; } = string.Empty;
 }
 
 public class InitiateTransferResponse

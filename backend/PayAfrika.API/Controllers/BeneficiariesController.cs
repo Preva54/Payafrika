@@ -40,6 +40,7 @@ public class BeneficiariesController : ControllerBase
         beneficiary.Id = Guid.NewGuid();
         beneficiary.UserId = GetUserId();
         beneficiary.CreatedAt = DateTime.UtcNow;
+        beneficiary.LastUsedAt ??= DateTime.UtcNow;
         _db.Beneficiaries.Add(beneficiary);
         await _db.SaveChangesAsync();
         return CreatedAtAction(nameof(Get), new { id = beneficiary.Id }, beneficiary);
@@ -59,6 +60,7 @@ public class BeneficiariesController : ControllerBase
         beneficiary.Currency = updated.Currency;
         beneficiary.IsVerified = updated.IsVerified;
         beneficiary.IsFavorite = updated.IsFavorite;
+        beneficiary.Nickname = updated.Nickname;
         await _db.SaveChangesAsync();
         return Ok(beneficiary);
     }

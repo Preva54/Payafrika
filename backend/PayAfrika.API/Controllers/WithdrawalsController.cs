@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PayAfrika.API.Data;
 using PayAfrika.API.DTOs;
 using PayAfrika.API.Models;
+using PayAfrika.API.Services.Security;
 
 namespace PayAfrika.API.Controllers;
 
@@ -14,10 +15,57 @@ namespace PayAfrika.API.Controllers;
 public class WithdrawalsController : ControllerBase
 {
     private readonly AppDbContext _db;
+    private readonly ISecurityService _security;
 
-    public WithdrawalsController(AppDbContext db)
+    private const decimal HighRiskThreshold = 50000m;
+
+    public WithdrawalsController(AppDbContext db, ISecurityService security)
     {
         _db = db;
+        _security = security;
+    }
+
+    [HttpPost("otp")]
+    public async Task<ActionResult> SendOtp([FromBody] OtpSendRequest request)
+    {
+        var userId = GetUserId();
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null) return NotFound();
+
+        var channel = user.TwoFactorEnabled && user.TwoFactorMethod != "none" ? user.TwoFactorMethod : "email";
+        await _security.CreateAndSendOtpAsync(userId, "withdrawal", channel);
+        return Ok(new { message = "Verification code sent.", expiresInSeconds = 300 });
+    }
+
+    [HttpPost("otp/verify")]
+    public async Task<ActionResult<TransactionOtpVerifyResponse>> VerifyOtp([FromBody] OtpVerifyRequest request)
+    {
+        var userId = GetUserId();
+        try
+        {
+            var token = await _security.ValidateOtpAsync(userId, "withdrawal", request.Code);
+            return Ok(new TransactionOtpVerifyResponse
+            {
+                Success = true,
+                ChallengeId = token.Id.ToString(),
+                AttemptsRemaining = token.MaxAttempts - token.Attempts,
+                Message = "Code verified. You can now complete your withdrawal.",
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            var pending = await _db.SecurityTokens
+                .Where(t => t.UserId == userId && t.Purpose == "withdrawal" && !t.IsConsumed)
+                .OrderByDescending(t => t.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            return BadRequest(new TransactionOtpVerifyResponse
+            {
+                Success = false,
+                AttemptsRemaining = pending != null ? pending.MaxAttempts - pending.Attempts : 0,
+                Message = ex.Message,
+            });
+        }
     }
 
     [HttpPost]
@@ -26,6 +74,33 @@ public class WithdrawalsController : ControllerBase
         var userId = GetUserId();
         var user = await _db.Users.FindAsync(userId);
         if (user == null) return Unauthorized();
+
+        if (user.TwoFactorEnabled || request.Amount >= HighRiskThreshold)
+        {
+            var otpProvided = !string.IsNullOrWhiteSpace(request.OtpCode);
+            var challengeProvided = !string.IsNullOrWhiteSpace(request.OtpChallengeId);
+
+            if (!challengeProvided && !otpProvided)
+                return BadRequest(new { error = "Withdrawal verification is required.", requiresOtp = true });
+
+            if (otpProvided)
+            {
+                var validated = await _security.ValidateOtpAsync(userId, "withdrawal", request.OtpCode!);
+                request.OtpChallengeId = validated.Id.ToString();
+            }
+            else if (Guid.TryParse(request.OtpChallengeId, out var challengeId))
+            {
+                var challenge = await _db.SecurityTokens
+                    .FirstOrDefaultAsync(t => t.Id == challengeId && t.UserId == userId &&
+                        t.Purpose == "withdrawal" && t.IsConsumed && t.VerifiedAt.HasValue);
+                if (challenge == null)
+                    return BadRequest(new { error = "Withdrawal verification is invalid or expired.", requiresOtp = true });
+            }
+            else
+            {
+                return BadRequest(new { error = "Withdrawal verification is invalid.", requiresOtp = true });
+            }
+        }
 
         // Compliance checks
         if (user.KYCStatus != "verified" && user.KYCStatus != "approved")

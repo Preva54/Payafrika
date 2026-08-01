@@ -4,7 +4,7 @@ import { useRef, useState } from "react"
 import { motion, useInView, AnimatePresence } from "framer-motion"
 import {
   Wallet, Building2, Globe, TrendingUp, Ship, Plane, Shield,
-  Truck, Store, Users, Briefcase, PiggyBank, X
+  Truck, Store, Users, Briefcase, PiggyBank, X, LucideIcon
 } from "lucide-react"
 import { services } from "@/data/mock-data"
 import { cn } from "@/lib/utils"
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
-const iconMap: Record<string, React.ElementType> = {
+const iconMap: Record<string, LucideIcon> = {
   Wallet, Building2, Globe, TrendingUp, Ship, Plane, Shield,
   Truck, Store, Users, Briefcase, PiggyBank,
 }

@@ -21,7 +21,7 @@ import {
   CheckCircle, XCircle, Percent, Clock, UserPlus, UserCheck, Shield, CreditCard,
   ArrowDownToLine, ArrowUpFromLine, WalletCards, BarChart3, FileText, FilePlus,
   Brain, Share2, Ticket, Star, RefreshCw, Download, Calendar,
-  FileDown, Lightbulb, TrendingDown,
+  FileDown, Lightbulb, TrendingDown, LucideIcon,
 } from "lucide-react"
 
 const colors = {
@@ -40,7 +40,7 @@ const periodOptions = [
   { value: "year", label: "This Year" },
 ]
 
-const iconMap: Record<string, React.ElementType> = {
+const iconMap: Record<string, LucideIcon> = {
   DollarSign, TrendingUp, Activity, Users, Store, Wallet, RotateCcw, AlertTriangle,
   CheckCircle, XCircle, Percent, Clock, UserPlus, UserCheck, Shield, CreditCard,
   ArrowDownToLine, ArrowUpFromLine, WalletCards, BarChart3, FileText, FilePlus,
@@ -158,7 +158,7 @@ function SimplePieChart({ data, height = 250 }: { data: TimeSeriesPoint[]; heigh
   return (
     <ResponsiveContainer width="100%" height={height}>
       <PieChart>
-        <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value" label={({ label, percent }) => `${label} ${(percent * 100).toFixed(0)}%`}>
+        <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={3} dataKey="value" label={(entry) => { const p = entry as { label?: string; percent?: number }; return `${p.label ?? ""} ${((p.percent ?? 0) * 100).toFixed(0)}%` }}>
           {data.map((_, i) => <Cell key={i} fill={chartColors[i % chartColors.length]} />)}
         </Pie>
         <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: "8px" }} />
@@ -270,7 +270,7 @@ function AiSummaryCard({ data }: { data: { summary: string; metrics: Record<stri
   )
 }
 
-function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: React.ElementType; color: string }) {
+function StatCard({ label, value, sub, icon: Icon, color }: { label: string; value: string; sub?: string; icon: LucideIcon; color: string }) {
   return (
     <Card className="border-0 bg-gradient-to-br from-card to-muted/30 shadow-sm">
       <CardContent className="p-4">

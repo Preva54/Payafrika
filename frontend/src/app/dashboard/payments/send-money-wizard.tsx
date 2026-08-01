@@ -5,19 +5,18 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   Check, ArrowLeft, ArrowRight, User, Building2, Globe,
   Download, Share2, Printer, CheckCircle2, Search, Loader2,
-  ShieldCheck, AlertTriangle, XCircle, Clock, ArrowUpRight,
-  Ban, RefreshCw, FileText, Fingerprint,
+  ShieldCheck, AlertTriangle, XCircle,
+  RefreshCw, Fingerprint, KeyRound,
 } from "lucide-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
-import { bankVerificationApi, beneficiariesApi, countriesApi, transfersApi, authApi, type UsernameSearchResult, type Country, type BankListResponse, type BankVerificationResponse, type InitiateTransferRequest, type InitiateTransferResponse } from "@/lib/api"
+import { bankVerificationApi, beneficiariesApi, countriesApi, transfersApi, authApi, type UsernameSearchResult, type Country, type BankListResponse, type BankVerificationResponse, type BankTransferResponse, type TransferQuoteResponse, type ExchangeRate } from "@/lib/api"
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   ZAR: "R", USD: "$", EUR: "€", GBP: "£", NGN: "₦", KES: "KSh",
@@ -29,7 +28,13 @@ const COUNTRY_FLAGS: Record<string, string> = {
   ZA: "🇿🇦", NG: "🇳🇬", KE: "🇰🇪", GH: "🇬🇭", BW: "🇧🇼", NA: "🇳🇦",
   ZM: "🇿🇲", ZW: "🇿🇼", TZ: "🇹🇿", UG: "🇺🇬", RW: "🇷🇼", GB: "🇬🇧",
   US: "🇺🇸", CA: "🇨🇦", AU: "🇦🇺", DE: "🇩🇪", FR: "🇫🇷", NL: "🇳🇱",
-  ES: "🇪🇸", IT: "🇮🇹", KE: "🇰🇪", ET: "🇪🇹", SZ: "🇸🇿", MW: "🇲🇼",
+  ES: "🇪🇸", IT: "🇮🇹", ET: "🇪🇹", SZ: "🇸🇿", MW: "🇲🇼",
+}
+
+const COUNTRY_CURRENCY: Record<string, string> = {
+  NG: "NGN", ZA: "ZAR", KE: "KES", GH: "GHS", BW: "BWP", NA: "NAD",
+  ZM: "ZMW", TZ: "TZS", UG: "UGX", RW: "RWF", GB: "GBP", US: "USD",
+  CA: "CAD", AU: "AUD", ET: "ETB", SZ: "SZL", MW: "MWK", ZW: "ZWL",
 }
 
 const ACCOUNT_DIGITS: Record<string, { min: number; max: number }> = {
@@ -44,7 +49,34 @@ const DEFAULT_ACCOUNT_DIGITS = { min: 6, max: 20 }
 
 const maskAccount = (accountNumber: string) => `${"*".repeat(8)}${accountNumber.slice(-4)}`
 
-export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
+const formatMoney = (amount: number, currency = "NGN") =>
+  `${CURRENCY_SYMBOLS[currency] || ""}${amount.toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+
+function buildReceiptText(tx: BankTransferResponse): string {
+  return [
+    "PAYAFRIKA TRANSFER RECEIPT",
+    "─────────────────────────────",
+    `Reference      : ${tx.reference}`,
+    `Date           : ${new Date(tx.createdAt).toLocaleString()}`,
+    `Status         : ${tx.status.toUpperCase()}`,
+    "─────────────────────────────",
+    `Recipient      : ${tx.accountName || ""}`,
+    `Bank           : ${tx.bankName || ""}`,
+    `Account        : ${tx.accountNumber}`,
+    `Narration      : ${tx.narration || "-"}`,
+    "─────────────────────────────",
+    `Amount         : ${formatMoney(tx.amount, tx.currency)}`,
+    `Fee            : ${formatMoney(tx.fee, tx.currency)}`,
+    `VAT            : ${formatMoney(tx.vat, tx.currency)}`,
+    `Total Debit    : ${formatMoney(tx.totalDebit, tx.currency)}`,
+    "─────────────────────────────",
+    `Provider Ref   : ${tx.providerRequestId || "-"}`,
+    "─────────────────────────────",
+    "Thank you for using PayAfrika.",
+  ].join("\n")
+}
+
+export function SendMoneyWizard({ onClose, rates }: { onClose: () => void; rates?: ExchangeRate[] }) {
   const [step, setStep] = useState(1)
   const [transferType, setTransferType] = useState("")
   const [recipientType, setRecipientType] = useState("")
@@ -70,32 +102,60 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
   const [recipientPhone, setRecipientPhone] = useState("")
   const [recipientEmail, setRecipientEmail] = useState("")
 
-  const [currency, setCurrency] = useState("ZAR")
+  const [currency, setCurrency] = useState("NGN")
   const [amount, setAmount] = useState("")
   const [reference, setReference] = useState("")
   const [note, setNote] = useState("")
   const [pin, setPin] = useState("")
+  const [newPin, setNewPin] = useState("")
+  const [confirmPin, setConfirmPin] = useState("")
+  const [hasPin, setHasPin] = useState<boolean | null>(null)
+  const [pinError, setPinError] = useState("")
 
-  const [txResult, setTxResult] = useState<InitiateTransferResponse | null>(null)
+  const [quote, setQuote] = useState<TransferQuoteResponse | null>(null)
+  const [quoting, setQuoting] = useState(false)
+
+  const [txResult, setTxResult] = useState<BankTransferResponse | null>(null)
   const [sending, setSending] = useState(false)
+  const [error, setError] = useState("")
+
+  const [otpSent, setOtpSent] = useState(false)
+  const [otpCode, setOtpCode] = useState("")
+  const [otpChallengeId, setOtpChallengeId] = useState("")
+  const [otpCountdown, setOtpCountdown] = useState(0)
+  const [otpSending, setOtpSending] = useState(false)
+  const [otpVerifying, setOtpVerifying] = useState(false)
+  const [otpError, setOtpError] = useState("")
+  const [otpAttemptsLeft, setOtpAttemptsLeft] = useState(5)
+  const otpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const [savingBeneficiary, setSavingBeneficiary] = useState(false)
+  const [beneficiarySaved, setBeneficiarySaved] = useState(false)
+  const [showSavePrompt, setShowSavePrompt] = useState(false)
+  const [beneficiaryNickname, setBeneficiaryNickname] = useState("")
 
   const searchTimeout = useRef<NodeJS.Timeout | null>(null)
+  const quoteTimeout = useRef<NodeJS.Timeout | null>(null)
 
-  const apiRates = [
-    { code: "ZAR", name: "South African Rand", flag: "🇿🇦", buy: 1, sell: 1, changePercent: 0 },
-    { code: "USD", name: "US Dollar", flag: "🇺🇸", buy: 0.055, sell: 0.058, changePercent: 0 },
-    { code: "EUR", name: "Euro", flag: "🇪🇺", buy: 0.051, sell: 0.054, changePercent: 0 },
-    { code: "GBP", name: "British Pound", flag: "🇬🇧", buy: 0.043, sell: 0.046, changePercent: 0 },
-    { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", buy: 75.5, sell: 78.0, changePercent: 0 },
-    { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪", buy: 7.2, sell: 7.5, changePercent: 0 },
-    { code: "GHS", name: "Ghanaian Cedi", flag: "🇬🇭", buy: 0.082, sell: 0.087, changePercent: 0 },
-    { code: "BWP", name: "Botswana Pula", flag: "🇧🇼", buy: 0.72, sell: 0.75, changePercent: 0 },
-  ]
+  const apiRates = rates && rates.length > 0
+    ? rates.map(r => ({ code: r.code, name: r.code, flag: COUNTRY_FLAGS[`${r.code.slice(0, 2)}`] || "🌍", buy: 0, sell: r.sell, changePercent: 0 }))
+    : [
+        { code: "ZAR", name: "South African Rand", flag: "🇿🇦", buy: 1, sell: 1, changePercent: 0 },
+        { code: "USD", name: "US Dollar", flag: "🇺🇸", buy: 0.055, sell: 0.058, changePercent: 0 },
+        { code: "EUR", name: "Euro", flag: "🇪🇺", buy: 0.051, sell: 0.054, changePercent: 0 },
+        { code: "GBP", name: "British Pound", flag: "🇬🇧", buy: 0.043, sell: 0.046, changePercent: 0 },
+        { code: "NGN", name: "Nigerian Naira", flag: "🇳🇬", buy: 75.5, sell: 78.0, changePercent: 0 },
+        { code: "KES", name: "Kenyan Shilling", flag: "🇰🇪", buy: 7.2, sell: 7.5, changePercent: 0 },
+        { code: "GHS", name: "Ghanaian Cedi", flag: "🇬🇭", buy: 0.082, sell: 0.087, changePercent: 0 },
+        { code: "BWP", name: "Botswana Pula", flag: "🇧🇼", buy: 0.72, sell: 0.75, changePercent: 0 },
+      ]
   const availableCurrencies = apiRates.filter(r => ["ZAR", "USD", "EUR", "GBP", "NGN", "KES", "GHS", "BWP", "NAD", "ZMW", "TZS", "UGX", "RWF", "CAD", "AUD"].includes(r.code))
   const selectedCurrency = availableCurrencies.find(c => c.code === currency) ?? availableCurrencies[0] ?? apiRates[0]
   const rate = selectedCurrency?.sell || 1
-  const fee = parseFloat(amount || "0") * 0.015
-  const total = parseFloat(amount || "0") + fee
+  const fee = quote?.fee ?? parseFloat(amount || "0") * 0.015
+  const vat = quote?.vat ?? 0
+  const total = quote?.totalDebit ?? (parseFloat(amount || "0") + fee)
+  const estimatedArrival = quote?.estimatedArrival || "1-3 business days"
 
   const fetchCountries = useCallback(async () => {
     try {
@@ -108,6 +168,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
 
   useEffect(() => {
     fetchCountries()
+    transfersApi.pinStatus().then(r => setHasPin(r.hasPin)).catch(() => setHasPin(true))
   }, [fetchCountries])
 
   useEffect(() => {
@@ -119,6 +180,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
     setSelectedBank("")
     setVerification(null)
     setAccountNumber("")
+    setQuote(null)
   }, [selectedCountry])
 
   useEffect(() => {
@@ -140,18 +202,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
     return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current) }
   }, [searchQuery])
 
-  useEffect(() => {
-    if (verificationTimeout.current) clearTimeout(verificationTimeout.current)
-    const { min } = ACCOUNT_DIGITS[selectedCountry] ?? DEFAULT_ACCOUNT_DIGITS
-    if (accountNumber.length >= min && selectedBank && selectedCountry) {
-      verificationTimeout.current = setTimeout(() => {
-        handleVerifyAccount()
-      }, 400)
-    }
-    return () => { if (verificationTimeout.current) clearTimeout(verificationTimeout.current) }
-  }, [accountNumber])
-
-  const handleVerifyAccount = async () => {
+  const handleVerifyAccount = useCallback(async () => {
     if (!selectedCountry || !selectedBank) return
     setVerifying(true)
     setVerification(null)
@@ -168,7 +219,39 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
     } finally {
       setVerifying(false)
     }
-  }
+  }, [selectedCountry, selectedBank, accountNumber, banks])
+
+  useEffect(() => {
+    if (verificationTimeout.current) clearTimeout(verificationTimeout.current)
+    const { min } = ACCOUNT_DIGITS[selectedCountry] ?? DEFAULT_ACCOUNT_DIGITS
+    if (accountNumber.length >= min && selectedBank && selectedCountry) {
+      verificationTimeout.current = setTimeout(() => {
+        handleVerifyAccount()
+      }, 400)
+    }
+    return () => { if (verificationTimeout.current) clearTimeout(verificationTimeout.current) }
+  }, [accountNumber, selectedBank, selectedCountry, handleVerifyAccount])
+
+  useEffect(() => {
+    if (quoteTimeout.current) clearTimeout(quoteTimeout.current)
+    const amt = parseFloat(amount)
+    if (transferType === "bank" && amt > 0 && selectedCountry) {
+      quoteTimeout.current = setTimeout(async () => {
+        setQuoting(true)
+        try {
+          const q = await transfersApi.quote({ amount: amt, countryCode: selectedCountry, currency })
+          setQuote(q)
+        } catch {
+          setQuote(null)
+        } finally {
+          setQuoting(false)
+        }
+      }, 350)
+    } else {
+      setQuote(null)
+    }
+    return () => { if (quoteTimeout.current) clearTimeout(quoteTimeout.current) }
+  }, [amount, selectedCountry, currency, transferType])
 
   const canProceed = () => {
     if (step === 1) return transferType !== ""
@@ -201,29 +284,230 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
     return ""
   }
 
+  const handleCountryChange = (code: string) => {
+    setSelectedCountry(code)
+    if (transferType === "bank" && COUNTRY_CURRENCY[code]) {
+      setCurrency(COUNTRY_CURRENCY[code])
+    }
+  }
+
+  const ensurePin = async (pinToUse: string): Promise<string> => {
+    if (hasPin) return pinToUse
+
+    if (newPin.length < 4 || !/^\d+$/.test(newPin)) {
+      setPinError("Transaction PIN must be at least 4 digits.")
+      return ""
+    }
+    if (newPin !== confirmPin) {
+      setPinError("PINs do not match.")
+      return ""
+    }
+
+    await transfersApi.setPin(newPin)
+    setHasPin(true)
+    setPinError("")
+    return newPin
+  }
+
   const handleSend = async () => {
+    setError("")
     setSending(true)
     try {
-      const req: InitiateTransferRequest = {
-        amount: parseFloat(amount),
-        currency,
-        recipientName: verification?.accountName || getRecipientDisplay(),
-        recipientType: transferType === "bank" || transferType === "international" ? "bank" : recipientType,
-        recipientCountryCode: selectedCountry || undefined,
-        recipientBankName: getBankName() || undefined,
-        recipientAccountNumber: accountNumber || undefined,
-        reference: reference || undefined,
-        description: note || undefined,
+      if (transferType === "bank") {
+        const pinToUse = await ensurePin(pin)
+        if (!pinToUse) {
+          setSending(false)
+          return
+        }
+        const bank = banks.find(b => b.id === selectedBank)
+        const req: {
+          amount: number
+          currency: string
+          countryCode: string
+          bankCode: string
+          accountNumber: string
+          accountName: string
+          narration?: string
+          pin: string
+          otpChallengeId?: string
+          otpCode?: string
+        } = {
+          amount: parseFloat(amount),
+          currency,
+          countryCode: selectedCountry,
+          bankCode: bank?.code || selectedBank,
+          accountNumber,
+          accountName: verification?.accountName || "",
+          narration: note || reference || undefined,
+          pin: pinToUse,
+        }
+        if (otpChallengeId) req.otpChallengeId = otpChallengeId
+        else if (otpSent && otpCode.trim().length === 6) req.otpCode = otpCode.trim()
+        const result = await transfersApi.initiate(req)
+        setTxResult(result)
+        setShowSavePrompt(result.status === "successful")
+        setStep(6)
+      } else {
+        const req = {
+          amount: parseFloat(amount),
+          currency,
+          recipientName: verification?.accountName || getRecipientDisplay(),
+          recipientType: transferType === "international" ? "bank" : recipientType,
+          recipientCountryCode: selectedCountry || undefined,
+          recipientBankName: getBankName() || undefined,
+          recipientAccountNumber: accountNumber || undefined,
+          reference: reference || undefined,
+          description: note || undefined,
+        }
+        const result = await transfersApi.legacySendBank(req)
+        setTxResult({
+          id: result.transactionId,
+          reference: result.reference,
+          countryCode: selectedCountry,
+          bankName: getBankName() || undefined,
+          accountNumber: accountNumber || "",
+          accountName: verification?.accountName || getRecipientDisplay(),
+          amount: result.amount,
+          currency: result.currency,
+          fee: result.fee,
+          vat: 0,
+          totalDebit: result.total,
+          status: result.status,
+          createdAt: new Date().toISOString(),
+        } as BankTransferResponse)
+        setShowSavePrompt(false)
+        setStep(6)
       }
-      const result = await transfersApi.initiate(req)
-      setTxResult(result)
-      setStep(7)
-    } catch {
-      setTxResult(null)
-      setStep(7)
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Transfer failed. Please try again."
+      const errData = (e as Error & { data?: { requiresOtp?: boolean } }).data
+      if (errData?.requiresOtp) {
+        setError(message)
+        sendOtp()
+      } else {
+        setError(message)
+      }
     } finally {
       setSending(false)
     }
+  }
+
+  const sendOtp = async () => {
+    setOtpSending(true)
+    setOtpError("")
+    try {
+      const res = await transfersApi.sendOtp()
+      setOtpSent(true)
+      setOtpChallengeId("")
+      setOtpCode("")
+      setOtpAttemptsLeft(5)
+      startOtpCountdown(res.expiresInSeconds ?? 300)
+    } catch (e) {
+      setOtpError(e instanceof Error ? e.message : "Could not send verification code.")
+    } finally {
+      setOtpSending(false)
+    }
+  }
+
+  const verifyOtp = async () => {
+    if (otpCode.trim().length !== 6) {
+      setOtpError("Enter the 6-digit code.")
+      return
+    }
+    setOtpVerifying(true)
+    setOtpError("")
+    try {
+      const res = await transfersApi.verifyOtp(otpCode.trim())
+      if (res.success && res.challengeId) {
+        setOtpChallengeId(res.challengeId)
+        if (otpTimerRef.current) clearInterval(otpTimerRef.current)
+        otpTimerRef.current = null
+        setOtpCountdown(0)
+      } else {
+        setOtpError(res.message || "Verification failed.")
+      }
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Verification failed."
+      setOtpError(message)
+      const match = message.match(/(\d+) attempts remaining/)
+      if (match) setOtpAttemptsLeft(parseInt(match[1], 10))
+    } finally {
+      setOtpVerifying(false)
+    }
+  }
+
+  const startOtpCountdown = (seconds: number) => {
+    setOtpCountdown(seconds)
+    if (otpTimerRef.current) clearInterval(otpTimerRef.current)
+    otpTimerRef.current = setInterval(() => {
+      setOtpCountdown((prev) => {
+        if (prev <= 1 && otpTimerRef.current) {
+          clearInterval(otpTimerRef.current)
+          otpTimerRef.current = null
+        }
+        return Math.max(0, prev - 1)
+      })
+    }, 1000)
+  }
+
+  const formatCountdown = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s.toString().padStart(2, "0")}`
+  }
+
+  const handleSaveBeneficiary = async () => {
+    setSavingBeneficiary(true)
+    try {
+      await beneficiariesApi.create({
+        name: txResult?.accountName || verification?.accountName || getRecipientDisplay(),
+        bankName: getBankName() || txResult?.bankName || undefined,
+        accountNumber: accountNumber || undefined,
+        country: selectedCountry,
+        currency,
+        isVerified: true,
+        isFavorite: false,
+        nickname: beneficiaryNickname.trim() || undefined,
+      })
+      setBeneficiarySaved(true)
+    } catch {}
+    setSavingBeneficiary(false)
+  }
+
+  const downloadReceipt = () => {
+    if (!txResult) return
+    const blob = new Blob([buildReceiptText(txResult)], { type: "text/plain;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${txResult.reference}-receipt.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const shareReceipt = async () => {
+    if (!txResult) return
+    const text = buildReceiptText(txResult)
+    if (navigator.share) {
+      try { await navigator.share({ title: "PayAfrika Transfer Receipt", text }) } catch {}
+    } else {
+      navigator.clipboard.writeText(text)
+      setError("Receipt copied to clipboard.")
+      setTimeout(() => setError(""), 2000)
+    }
+  }
+
+  const resetWizard = () => {
+    setStep(1); setRecipientType(""); setTransferType(""); setVerification(null); setAccountNumber("")
+    setTxResult(null); setPin(""); setNewPin(""); setConfirmPin(""); setSelectedRecipient(null)
+    setSelectedCountry(""); setSelectedBank(""); setSearchQuery(""); setRecipientName("")
+    setRecipientPhone(""); setRecipientEmail(""); setAmount(""); setReference(""); setNote("")
+    setQuote(null); setError(""); setShowSavePrompt(false); setBeneficiarySaved(false)
+    setBeneficiaryNickname(""); setCurrency("NGN")
+    setOtpSent(false); setOtpCode(""); setOtpChallengeId(""); setOtpCountdown(0); setOtpError("")
+    setOtpAttemptsLeft(5)
+    if (otpTimerRef.current) clearInterval(otpTimerRef.current)
+    otpTimerRef.current = null
   }
 
   const steps = ["Recipient", "Bank Details", "Amount", "Review", "Confirm", "Success"]
@@ -232,19 +516,20 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
     <Card className="overflow-hidden">
       <div className="px-6 pt-6 pb-4 flex items-center justify-between border-b">
         <div className="flex items-center gap-3">
-          {step < 7 && (
+          {step < 6 && (
             <button onClick={() => setStep(s => s - 1)} className="p-1 hover:bg-secondary rounded-lg transition-colors">
               <ArrowLeft className="h-5 w-5" />
             </button>
           )}
           <h2 className="text-lg font-semibold">Send Money</h2>
+          {transferType === "bank" && <Badge variant="outline" className="ml-1">{COUNTRY_FLAGS[selectedCountry] || "🌍"} {currency}</Badge>}
         </div>
         <button onClick={onClose} className="text-sm text-muted-foreground hover:text-foreground">✕</button>
       </div>
 
-      {step < 7 && (
+      {step < 6 && (
         <div className="px-6 py-3 border-b">
-          <Progress value={(step / 6) * 100} className="h-1" />
+          <Progress value={(step / 5) * 100} className="h-1" />
           <div className="flex justify-between mt-2">
             {steps.map((s, i) => (
               <span key={s} className={`text-[10px] ${i + 1 <= step ? "text-primary font-medium" : "text-muted-foreground"}`}>{s}</span>
@@ -253,51 +538,52 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-       <CardContent className="p-6">
-         <AnimatePresence mode="wait">
-           {step === 1 && (
-             <div key="s1" className="space-y-4">
-               <p className="text-sm font-medium text-muted-foreground mb-3">Choose how you want to send money</p>
-               <div className="grid grid-cols-1 gap-3">
-                 {[
-                   { id: "payafrika", label: "PayAfrika User", desc: "Send to another PayAfrika user", icon: User, color: "from-primary/10 to-primary/5" },
-                   { id: "bank", label: "Local Bank Transfer", desc: "Send to a bank account in your country", icon: Building2, color: "from-blue-500/10 to-blue-500/5" },
-                   { id: "international", label: "International Transfer", desc: "Send to a bank account worldwide", icon: Globe, color: "from-green-500/10 to-green-500/5" },
-                 ].map(rt => {
-                   const Icon = rt.icon
-                   return (
-                     <button
-                       key={rt.id}
-                       onClick={() => { setTransferType(rt.id); setStep(2) }}
-                       className="p-4 rounded-xl border-2 text-left transition-all hover:border-primary/50"
-                     >
-                       <div className="flex items-center gap-4">
-                         <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${rt.color} flex items-center justify-center shrink-0`}>
-                           <Icon className="h-6 w-6" />
-                         </div>
-                         <div>
-                           <p className="font-semibold text-sm">{rt.label}</p>
-                           <p className="text-xs text-muted-foreground mt-0.5">{rt.desc}</p>
-                         </div>
-                         <ArrowRight className="h-4 w-4 text-muted-foreground ml-auto" />
-                       </div>
-                     </button>
-                   )
-                 })}
-               </div>
-             </div>
-           )}
-           {step === 2 && transferType === "bank" && (
+      <CardContent className="p-6">
+        <AnimatePresence mode="wait">
+          {step === 1 && (
+            <motion.div key="s1" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-4">
+              <p className="text-sm font-medium text-muted-foreground mb-3">Choose how you want to send money</p>
+              <div className="grid grid-cols-1 gap-3">
+                {[
+                  { id: "payafrika", label: "PayAfrika User", desc: "Send to another PayAfrika user", icon: User, color: "from-primary/10 to-primary/5" },
+                  { id: "bank", label: "Nigerian Bank Account", desc: "Send to any Nigerian bank instantly", icon: Building2, color: "from-blue-500/10 to-blue-500/5" },
+                  { id: "international", label: "International Transfer", desc: "Send to a bank account worldwide", icon: Globe, color: "from-green-500/10 to-green-500/5" },
+                ].map(rt => {
+                  const Icon = rt.icon
+                  return (
+                    <button
+                      key={rt.id}
+                      onClick={() => { setTransferType(rt.id); setStep(2); if (rt.id === "bank") handleCountryChange("NG") }}
+                      className="p-4 rounded-xl border-2 text-left transition-all hover:border-primary/50"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className={`h-12 w-12 rounded-xl bg-gradient-to-br ${rt.color} flex items-center justify-center shrink-0`}>
+                          <Icon className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">{rt.label}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">{rt.desc}</p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground ml-auto" />
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </motion.div>
+          )}
+
+          {step === 2 && transferType === "bank" && (
             <motion.div key="bank-select" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
               <div className="space-y-2">
                 <Label>Country</Label>
-                <Select value={selectedCountry} onValueChange={setSelectedCountry}>
+                <Select value={selectedCountry} onValueChange={handleCountryChange}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select destination country" />
                   </SelectTrigger>
                   <SelectContent>
                     {countries.filter(c => c.isEnabled).map(c => (
-                      <SelectItem key={c.id} value={c.code}>{c.code} — {c.name}</SelectItem>
+                      <SelectItem key={c.id} value={c.code}>{COUNTRY_FLAGS[c.code] || "🌍"} {c.code} — {c.name}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
@@ -333,7 +619,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                     </div>
                   </div>
 
-                    <div className="space-y-2">
+                  <div className="space-y-2">
                     <Label>Account Number</Label>
                     <Input
                       placeholder="Enter account number"
@@ -341,6 +627,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                       onChange={e => { setAccountNumber(e.target.value.replace(/\D/g, "").slice(0, (ACCOUNT_DIGITS[selectedCountry]?.max ?? DEFAULT_ACCOUNT_DIGITS.max))); setVerification(null) }}
                       maxLength={ACCOUNT_DIGITS[selectedCountry]?.max ?? DEFAULT_ACCOUNT_DIGITS.max}
                       inputMode="numeric"
+                      autoComplete="off"
                     />
                   </div>
 
@@ -355,7 +642,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                     <div className="p-4 rounded-xl bg-red-50 border border-red-200">
                       <div className="flex items-center gap-2">
                         <XCircle className="h-5 w-5 text-red-600" />
-                        <p className="font-medium text-sm text-red-800">Unable to verify this bank account.</p>
+                        <p className="font-medium text-sm text-red-800">Unable to verify this account.</p>
                         <Button variant="outline" size="sm" className="ml-auto" onClick={handleVerifyAccount}>
                           <RefreshCw className="mr-1 h-3 w-3" />Retry
                         </Button>
@@ -373,7 +660,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                     <div className="p-4 rounded-xl bg-green-50 border border-green-200 space-y-2">
                       <div className="flex items-center gap-2">
                         <CheckCircle2 className="h-5 w-5 text-green-600" />
-                        <p className="font-medium text-sm text-green-800">Account Verified</p>
+                        <p className="font-medium text-sm text-green-800">Verified Account</p>
                         <ShieldCheck className="h-4 w-4 text-green-500 ml-auto" />
                       </div>
                       <div className="grid grid-cols-1 gap-2 pt-1">
@@ -397,7 +684,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
             </motion.div>
           )}
 
-           {step === 2 && transferType === "international" && (
+          {step === 2 && transferType === "international" && (
             <motion.div key="international" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
               <div className="space-y-2">
                 <Label>Destination Country</Label>
@@ -510,7 +797,7 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
             </motion.div>
           )}
 
-          {!(verification?.success) && step === 2 && transferType === "payafrika" && (
+          {step === 2 && transferType === "payafrika" && (
             <motion.div key="payafrika" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-4">
               <div className="space-y-2 relative">
                 <Label>Search by Username or Name</Label>
@@ -556,26 +843,30 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
 
               {parseFloat(amount) > 0 && (
                 <div className="p-4 rounded-xl bg-secondary/50 space-y-2 text-sm">
+                  {transferType === "bank" && quoting && (
+                    <div className="flex items-center gap-2 text-muted-foreground text-xs">
+                      <Loader2 className="h-3 w-3 animate-spin" /> Calculating fees...
+                    </div>
+                  )}
                   {transferType === "international" && (
                     <>
                       <div className="flex justify-between"><span className="text-muted-foreground">Exchange Rate</span><span>1 {currency} = {(1 / rate).toFixed(4)} ZAR</span></div>
                       <div className="flex justify-between"><span className="text-muted-foreground">You Pay</span><span className="font-medium">{CURRENCY_SYMBOLS[currency] || "¥"}{parseFloat(amount).toFixed(2)}</span></div>
                     </>
                   )}
-                  <div className="flex justify-between"><span className="text-muted-foreground">Fee (1.5%)</span><span className="text-destructive">-R {fee.toFixed(2)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Transfer Fee</span><span>{formatMoney(fee, currency)}</span></div>
+                  {vat > 0 && (
+                    <div className="flex justify-between"><span className="text-muted-foreground">VAT</span><span>{formatMoney(vat, currency)}</span></div>
+                  )}
                   <Separator />
-                  <div className="flex justify-between font-medium"><span>Total</span><span>R {total.toFixed(2)}</span></div>
-                  <p className="text-[10px] text-muted-foreground pt-1">Estimated delivery: 1-3 business days</p>
+                  <div className="flex justify-between font-medium"><span>Total Debit</span><span>{formatMoney(total, currency)}</span></div>
+                  <p className="text-[10px] text-muted-foreground pt-1">Estimated arrival: {estimatedArrival}</p>
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label>Reference (optional)</Label>
-                <Input placeholder="e.g. Invoice #1234" value={reference} onChange={e => setReference(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Note (optional)</Label>
-                <Textarea placeholder="Add a note..." value={note} onChange={e => setNote(e.target.value)} className="min-h-[80px]" />
+                <Label>Narration (optional)</Label>
+                <Input placeholder="e.g. Rent Payment" value={note} onChange={e => setNote(e.target.value)} />
               </div>
             </motion.div>
           )}
@@ -585,18 +876,19 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
               <p className="text-sm font-medium text-muted-foreground mb-3">Review your transfer</p>
               <div className="space-y-3">
                 {[
-                  { label: "Recipient", value: getRecipientDisplay() },
-                  { label: "Type", value: transferType === "payafrika" ? "PayAfrika User" : transferType === "bank" ? "Local Bank Transfer" : "International Transfer" },
+                  { label: "Recipient", value: (verification?.accountName || getRecipientDisplay()).toUpperCase() },
+                  { label: "Type", value: transferType === "payafrika" ? "PayAfrika User" : transferType === "bank" ? "Nigerian Bank Account" : "International Transfer" },
                   ...(selectedCountry ? [{ label: "Country", value: `${COUNTRY_FLAGS[selectedCountry] || "🌍"} ${selectedCountry}` }] : []),
                   ...(getBankName() ? [{ label: "Bank", value: getBankName() }] : []),
                   ...(accountNumber ? [{ label: "Account", value: maskAccount(accountNumber) }] : []),
                   ...(verification?.success ? [{ label: "Account Holder", value: (verification.accountName || "—").toUpperCase(), status: "verified" as const }] : []),
-                  { label: "Amount", value: `${CURRENCY_SYMBOLS[currency] || "R"}${parseFloat(amount || "0").toFixed(2)}` },
-                  { label: "Fee", value: `R ${fee.toFixed(2)}` },
-                  ...(transferType === "international" ? [{ label: "You Pay", value: `${CURRENCY_SYMBOLS[currency] || "¥"}${parseFloat(amount || "0").toFixed(2)}` }] : []),
-                  { label: "Total", value: `R ${total.toFixed(2)}` },
-                  { label: "Reference", value: reference || "None" },
-                  { label: "Est. Arrival", value: "1-3 business days" },
+                  { label: "Amount", value: formatMoney(parseFloat(amount || "0"), currency) },
+                  { label: "Fee", value: formatMoney(fee, currency) },
+                  ...(vat > 0 ? [{ label: "VAT", value: formatMoney(vat, currency) }] : []),
+                  ...(transferType === "international" ? [{ label: "You Pay", value: formatMoney(parseFloat(amount || "0"), currency) }] : []),
+                  { label: "Total Debit", value: formatMoney(total, currency) },
+                  ...(note ? [{ label: "Narration", value: note }] : []),
+                  { label: "Est. Arrival", value: estimatedArrival },
                 ].map((item, i) => (
                   <div key={i} className="flex justify-between py-2 text-sm border-b border-border last:border-0">
                     <span className="text-muted-foreground">{item.label}</span>
@@ -613,54 +905,200 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
                 <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
                 <div className="text-sm text-yellow-800">
                   <p className="font-medium">Confirm this transfer?</p>
-                  <p className="text-xs mt-1 opacity-80">You will be asked to enter your transaction PIN and complete two-factor authentication.</p>
+                  <p className="text-xs mt-1 opacity-80">You will be asked to enter your transaction PIN to authorize {formatMoney(total, currency)}.</p>
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label>Transaction PIN</Label>
-                <Input type="password" placeholder="Enter your PIN" value={pin} onChange={e => setPin(e.target.value)} maxLength={6} className="tracking-[0.3em] text-center" />
-              </div>
+              {hasPin === false ? (
+                <div className="space-y-3 rounded-xl border border-border p-4">
+                  <div className="flex items-center gap-2">
+                    <KeyRound className="h-4 w-4 text-primary" />
+                    <p className="text-sm font-medium">Set your Transaction PIN</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground">A 4-digit PIN is required to authorize transfers. It will be used for all future transactions.</p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label>New PIN</Label>
+                      <Input type="password" placeholder="••••" value={newPin} onChange={e => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 6))} maxLength={6} inputMode="numeric" className="tracking-[0.3em] text-center" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label>Confirm PIN</Label>
+                      <Input type="password" placeholder="••••" value={confirmPin} onChange={e => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))} maxLength={6} inputMode="numeric" className="tracking-[0.3em] text-center" />
+                    </div>
+                  </div>
+                  {pinError && <p className="text-xs text-destructive">{pinError}</p>}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label>Transaction PIN</Label>
+                  <Input type="password" placeholder="Enter your PIN" value={pin} onChange={e => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))} maxLength={6} inputMode="numeric" className="tracking-[0.3em] text-center" />
+                </div>
+              )}
 
               <div className="flex items-center gap-2 p-3 rounded-xl bg-secondary/50">
                 <Fingerprint className="h-4 w-4 text-muted-foreground" />
                 <span className="text-sm text-muted-foreground">Two-Factor Authentication required</span>
                 <Badge variant="secondary" className="ml-auto">Enabled</Badge>
               </div>
+
+              <div className="space-y-3 rounded-xl border border-border p-4">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-medium">Verify with a one-time code</p>
+                  <Badge variant={otpChallengeId ? "default" : "secondary"} className="ml-auto">
+                    {otpChallengeId ? "Verified" : otpSent ? "Code sent" : "Required"}
+                  </Badge>
+                </div>
+
+                {otpSent && !otpChallengeId && (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        inputMode="numeric"
+                        placeholder="6-digit code"
+                        className="text-center tracking-[0.3em] font-mono"
+                        maxLength={6}
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                      />
+                      <Button
+                        variant="outline"
+                        size="icon"
+                        className="shrink-0"
+                        onClick={verifyOtp}
+                        disabled={otpVerifying || otpCode.trim().length !== 6}
+                        title="Verify code"
+                      >
+                        {otpVerifying ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">
+                        {otpAttemptsLeft} attempt{otpAttemptsLeft !== 1 ? "s" : ""} remaining
+                      </span>
+                      <span className={otpCountdown === 0 ? "text-destructive font-medium" : "text-muted-foreground font-mono"}>
+                        {otpCountdown > 0 ? formatCountdown(otpCountdown) : "Code expired"}
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={sendOtp}
+                      disabled={otpCountdown > 0 || otpSending}
+                      className="text-xs text-primary hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
+                    >
+                      {otpSending ? "Sending..." : otpCountdown > 0 ? `Resend in ${formatCountdown(otpCountdown)}` : "Resend code"}
+                    </button>
+                    {otpError && <p className="text-xs text-destructive">{otpError}</p>}
+                  </div>
+                )}
+
+                {!otpSent && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={sendOtp}
+                    disabled={otpSending}
+                    className="w-full"
+                  >
+                    {otpSending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending code...</> : <><ShieldCheck className="mr-2 h-4 w-4" />Send verification code</>}
+                  </Button>
+                )}
+
+                {otpChallengeId && (
+                  <p className="text-xs text-accent flex items-center gap-1.5">
+                    <Check className="h-3.5 w-3.5" /> Code verified. You can now authorize the transfer.
+                  </p>
+                )}
+              </div>
+
+              {error && (
+                <div className="flex items-start gap-2 p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-800">
+                  <XCircle className="h-4 w-4 mt-0.5 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
             </motion.div>
           )}
 
-          {step === 6 && (
-            <motion.div key="success" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-8 space-y-4">
-              <div className="h-20 w-20 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
-                <CheckCircle2 className="h-10 w-10 text-accent" />
-              </div>
-              <h3 className="text-2xl font-bold">Transfer Complete!</h3>
-              <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-                Your transfer to <strong>{getRecipientDisplay()}</strong> has been initiated successfully.
-              </p>
-              {txResult && (
-                <div className="inline-flex flex-col items-center gap-2 px-4 py-3 rounded-xl bg-secondary text-left w-full max-w-sm mx-auto">
-                  <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Reference</span><span className="font-mono text-xs">{txResult.reference}</span></div>
-                  <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Amount</span><span className="font-medium">R {txResult.amount.toFixed(2)}</span></div>
-                  <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Fee</span><span className="text-destructive">R {txResult.fee.toFixed(2)}</span></div>
-                  <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Est. Arrival</span><span>{txResult.estimatedArrival || "1-3 business days"}</span></div>
-                </div>
+          {step === 6 && txResult && (
+            <motion.div key="result" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} className="text-center py-6 space-y-4">
+              {txResult.status === "successful" ? (
+                <>
+                  <div className="h-20 w-20 rounded-full bg-accent/10 flex items-center justify-center mx-auto">
+                    <CheckCircle2 className="h-10 w-10 text-accent" />
+                  </div>
+                  <h3 className="text-2xl font-bold">Transfer Successful</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                    Your transfer to <strong>{txResult.accountName}</strong> has been sent successfully.
+                  </p>
+                  <div className="inline-flex flex-col items-center gap-2 px-4 py-3 rounded-xl bg-secondary text-left w-full max-w-sm mx-auto">
+                    <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Reference</span><span className="font-mono text-xs">{txResult.reference}</span></div>
+                    <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Recipient</span><span className="font-medium uppercase text-right">{txResult.accountName}</span></div>
+                    {txResult.bankName && <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Bank</span><span className="font-medium">{txResult.bankName}</span></div>}
+                    <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Amount</span><span className="font-medium">{formatMoney(txResult.amount, txResult.currency)}</span></div>
+                    <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Fee</span><span>{formatMoney(txResult.fee, txResult.currency)}</span></div>
+                    <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Status</span><Badge variant="success" className="text-[10px]">Successful</Badge></div>
+                  </div>
+
+                  <div className="flex justify-center gap-2 pt-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={downloadReceipt}><Download className="mr-2 h-4 w-4" />Receipt</Button>
+                    <Button variant="outline" size="sm" onClick={shareReceipt}><Share2 className="mr-2 h-4 w-4" />Share</Button>
+                    <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
+                    <Button variant="outline" size="sm" onClick={resetWizard}><RefreshCw className="mr-2 h-4 w-4" />Make Another Transfer</Button>
+                  </div>
+
+                  {showSavePrompt && (
+                    <div className="rounded-xl border border-border p-4 text-left space-y-3">
+                      <div className="flex items-center gap-2">
+                        <ShieldCheck className="h-4 w-4 text-accent" />
+                        <p className="text-sm font-medium">Save this beneficiary?</p>
+                      </div>
+                      <div className="space-y-1">
+                        <Label className="text-xs">Nickname (optional)</Label>
+                        <Input placeholder={`e.g. ${txResult.accountName?.split(" ")[0] || "Recipient"}`} value={beneficiaryNickname} onChange={e => setBeneficiaryNickname(e.target.value)} />
+                      </div>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="gradient" onClick={handleSaveBeneficiary} disabled={savingBeneficiary}>
+                          {savingBeneficiary ? <><Loader2 className="mr-1 h-3 w-3 animate-spin" />Saving...</> : beneficiarySaved ? <><Check className="mr-1 h-3 w-3" />Saved</> : "Save"}
+                        </Button>
+                        <Button size="sm" variant="outline" onClick={() => setShowSavePrompt(false)}>Skip</Button>
+                      </div>
+                      {beneficiarySaved && <p className="text-xs text-accent">Beneficiary saved successfully.</p>}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="h-20 w-20 rounded-full bg-red-50 border border-red-200 flex items-center justify-center mx-auto">
+                    <XCircle className="h-10 w-10 text-destructive" />
+                  </div>
+                  <h3 className="text-2xl font-bold">Transfer Failed</h3>
+                  <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                    {txResult.failureReason || "The transfer could not be completed."}
+                  </p>
+                  <div className="inline-flex flex-col items-center gap-2 px-4 py-3 rounded-xl bg-secondary text-left w-full max-w-sm mx-auto">
+                    <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Reference</span><span className="font-mono text-xs">{txResult.reference}</span></div>
+                    <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Amount</span><span className="font-medium">{formatMoney(txResult.amount, txResult.currency)}</span></div>
+                    <div className="flex justify-between w-full text-sm"><span className="text-muted-foreground">Status</span><Badge variant="destructive" className="text-[10px]">Failed</Badge></div>
+                  </div>
+                  <p className="text-xs text-muted-foreground flex items-center justify-center gap-1">
+                    <RefreshCw className="h-3 w-3" /> Your funds have been refunded.
+                  </p>
+                  <div className="flex justify-center gap-2 pt-2">
+                    <Button variant="outline" size="sm" onClick={() => setStep(3)}><RefreshCw className="mr-2 h-4 w-4" />Try Again</Button>
+                  </div>
+                </>
               )}
-              <div className="flex justify-center gap-3 pt-2">
-                <Button variant="outline" size="sm" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
-                <Button variant="outline" size="sm"><Download className="mr-2 h-4 w-4" />Receipt</Button>
-                <Button variant="outline" size="sm"><Share2 className="mr-2 h-4 w-4" />Share</Button>
-              </div>
             </motion.div>
           )}
         </AnimatePresence>
       </CardContent>
 
       <div className="px-6 py-4 border-t flex justify-between">
-        {step < 7 ? (
+        {step < 6 ? (
           <>
-            {step > 1 && step < 6 && (
+            {step > 1 && (
               <Button variant="ghost" onClick={() => {
                 if (step === 4) { setStep(3); return }
                 if (step === 3 && !verification?.success) { setStep(2); return }
@@ -672,17 +1110,17 @@ export function SendMoneyWizard({ onClose }: { onClose: () => void }) {
             <Button
               variant="gradient"
               onClick={() => {
-                if (step === 4) handleSend()
-                else if (step === 5) handleSend()
+                if (step === 5) handleSend()
+                else if (step === 4) setStep(5)
                 else setStep(s => s + 1)
               }}
               disabled={sending || (step === 2 && !verification?.success && transferType === "bank") || (step === 2 && !verification?.success && transferType === "international") || !canProceed()}
             >
-              {sending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : step === 4 ? <><span>Confirm Transfer</span><ArrowRight className="ml-2 h-4 w-4" /></> : step === 5 ? "Complete Transfer" : <><span>Continue</span><ArrowRight className="ml-2 h-4 w-4" /></>}
+              {sending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : step === 4 ? <><span>Confirm Transfer</span><ArrowRight className="ml-2 h-4 w-4" /></> : step === 5 ? "Authorize Transfer" : <><span>Continue</span><ArrowRight className="ml-2 h-4 w-4" /></>}
             </Button>
           </>
         ) : (
-          <Button variant="gradient" className="w-full" onClick={() => { setStep(1); setRecipientType(""); setTransferType(""); setVerification(null); setAccountNumber(""); setTxResult(null); setPin(""); setSelectedRecipient(null); setSelectedCountry(""); setSelectedBank(""); setSearchQuery(""); setRecipientName(""); setRecipientPhone(""); setRecipientEmail(""); setAmount(""); setReference(""); setNote(""); onClose() }}>Done</Button>
+          <Button variant="gradient" className="w-full" onClick={() => { resetWizard(); onClose() }}>Done</Button>
         )}
       </div>
     </Card>
