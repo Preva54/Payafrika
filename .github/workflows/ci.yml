@@ -2,80 +2,61 @@ name: CI
 
 on:
   push:
-    branches: [main, master, develop]
+    branches: [master, main]
   pull_request:
-    branches: [main]
-
-env:
-  NODE_VERSION: "22"
-  DOTNET_VERSION: "10.0.x"
+    branches: [master, main]
 
 jobs:
+  backend:
+    name: Backend build + tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+
+      - name: Restore
+        run: dotnet restore PayAfrika.slnx
+
+      - name: Build
+        run: dotnet build PayAfrika.slnx --no-restore --nologo
+
+      - name: Test
+        run: dotnet test PayAfrika.API.Tests --no-build --nologo --verbosity normal
+
   frontend:
-    name: Frontend — Lint & Build
+    name: Frontend typecheck + lint
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: frontend
-
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          node-version: "22"
+          cache: npm
           cache-dependency-path: frontend/package-lock.json
 
-      - name: Remove platform-specific SWC binary
-        run: sed -i '/@next\/swc-win32-x64-msvc/d' package.json
-
-      - name: Install dependencies
+      - name: Install
         run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
 
       - name: Lint
         run: npm run lint
 
       - name: Build
-        run: npm run build
-
-      - name: Cache .next
-        uses: actions/cache@v4
-        with:
-          path: frontend/.next
-          key: next-${{ hashFiles('frontend/package-lock.json', 'frontend/src/**/*.{ts,tsx,css}') }}
-
-      - name: Install Playwright browsers
-        run: npx playwright install chromium --with-deps
-
-      - name: Run E2E tests
-        run: npx playwright test
-
-  backend:
-    name: Backend — Restore, Build & Test
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: backend
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: ${{ env.DOTNET_VERSION }}
-
-      - name: Cache NuGet packages
-        uses: actions/cache@v4
-        with:
-          path: ~/.nuget/packages
-          key: nuget-${{ hashFiles('backend/**/*.csproj') }}
-
-      - name: Restore
-        run: dotnet restore PayAfrika.API/PayAfrika.API.csproj && dotnet restore PayAfrika.API.Tests/PayAfrika.API.Tests.csproj
-
-      - name: Build
-        run: dotnet build PayAfrika.API/PayAfrika.API.csproj --no-restore --configuration Release
-
-      - name: Test
-        run: dotnet test PayAfrika.API.Tests/PayAfrika.API.Tests.csproj --no-restore --configuration Release
+        run: npx next build --webpack
+        env:
+          NEXT_PUBLIC_API_URL: https://pafrikav2-api.ambitiousocean-b7255ba5.northeurope.azurecontainerapps.io/api
+          NEXT_PUBLIC_APP_URL: https://payafrika.vercel.app

@@ -1,16 +1,21 @@
 param(
   [Parameter()]
   [ValidateSet("frontend", "backend", "all")]
-  [string]$Target = "all",
-
-  [Parameter()]
-  [string]$Environment = "production"
+  [string]$Target = "all"
 )
 
 $ErrorActionPreference = "Stop"
 
+# ---- Configuration (verified production values) ----
+$ACR_NAME        = "pafrikav2acr"
+$ACR_IMAGE       = "payafrika/backend"
+$IMAGE_TAG       = "prod-" + (Get-Date -Format "yyyyMMdd-HHmmss")
+$RESOURCE_GROUP  = "payafrika-prod-v2"
+$CONTAINER_APP   = "pafrikav2-api"
+$API_BASE_URL    = "https://pafrikav2-api.ambitiousocean-b7255ba5.northeurope.azurecontainerapps.io/api"
+
 function Deploy-Frontend {
-  Write-Host "=== Deploying Frontend to Vercel ===" -ForegroundColor Cyan
+  Write-Host "=== Deploying Frontend to Vercel (from repo root) ===" -ForegroundColor Cyan
 
   $vercel = Get-Command "vercel" -ErrorAction SilentlyContinue
   if (-not $vercel) {
@@ -18,42 +23,34 @@ function Deploy-Frontend {
     npm install -g vercel
   }
 
-  Set-Location -LiteralPath "frontend"
-
-  Write-Host "Linking project..." -ForegroundColor Yellow
-  vercel link --yes 2>$null
-
-  Write-Host "Setting environment variables..." -ForegroundColor Yellow
-  vercel env add NEXT_PUBLIC_API_URL $Environment
-  vercel env add NEXT_PUBLIC_APP_URL $Environment
-
-  Write-Host "Deploying to $Environment..." -ForegroundColor Yellow
-  if ($Environment -eq "production") {
-    vercel --prod
-  } else {
-    vercel
-  }
-
-  Set-Location -LiteralPath ".."
-  Write-Host "Frontend deployed!" -ForegroundColor Green
+  Write-Host "Deploying to production (project root dir = frontend)..." -ForegroundColor Yellow
+  vercel --prod --yes
+  if ($LASTEXITCODE -ne 0) { throw "Vercel deploy failed" }
+  Write-Host "Frontend deployed: https://payafrika.vercel.app" -ForegroundColor Green
 }
 
 function Deploy-Backend {
-  Write-Host "=== Deploying Backend to Azure ===" -ForegroundColor Cyan
-  Write-Host ""
-  Write-Host "Prerequisites:" -ForegroundColor Yellow
-  Write-Host "  1. Azure CLI installed (https://aka.ms/install-azure-cli)"
-  Write-Host "  2. Logged in: az login"
-  Write-Host "  3. Resource group created"
-  Write-Host ""
-  Write-Host "Run the backend deployment script:" -ForegroundColor Yellow
-  Write-Host "  .\backend\deploy\deploy.ps1 -ResourceGroupName payafrika-prod -DbPassword (ConvertTo-SecureString '...' -AsPlainText -Force) -JwtSecret (ConvertTo-SecureString '...' -AsPlainText -Force)"
-  Write-Host ""
-  Write-Host "Then deploy the API code:" -ForegroundColor Yellow
-  Write-Host "  cd backend/PayAfrika.API"
-  Write-Host "  dotnet publish -c Release -o publish"
-  Write-Host "  Compress-Archive -Path publish/* -DestinationPath publish.zip"
-  Write-Host "  az webapp deploy --resource-group payafrika-prod --name payafrika-api --src-path publish.zip --type zip"
+  Write-Host "=== Deploying Backend to Azure Container App ===" -ForegroundColor Cyan
+  Write-Host "Prerequisites: Docker Desktop running, az CLI logged in (az login)." -ForegroundColor Yellow
+
+  Write-Host "Checking Azure login..." -ForegroundColor Yellow
+  az account show *> $null
+  if ($LASTEXITCODE -ne 0) { throw "Not logged in. Run: az login" }
+
+  Write-Host "Building image: $ACR_IMAGE`:$IMAGE_TAG" -ForegroundColor Yellow
+  docker build -t "$ACR_NAME.azurecr.io/$ACR_IMAGE`:$IMAGE_TAG" -f backend/PayAfrika.API/Dockerfile backend/PayAfrika.API
+  if ($LASTEXITCODE -ne 0) { throw "Docker build failed" }
+
+  Write-Host "Pushing to ACR..." -ForegroundColor Yellow
+  docker push "$ACR_NAME.azurecr.io/$ACR_IMAGE`:$IMAGE_TAG"
+  if ($LASTEXITCODE -ne 0) { throw "Docker push failed" }
+
+  Write-Host "Updating container app (new revision)..." -ForegroundColor Yellow
+  az containerapp update --resource-group $RESOURCE_GROUP --name $CONTAINER_APP --image "$ACR_NAME.azurecr.io/$ACR_IMAGE`:$IMAGE_TAG"
+  if ($LASTEXITCODE -ne 0) { throw "containerapp update failed" }
+
+  Write-Host "Backend deployed: $API_BASE_URL" -ForegroundColor Green
+  Write-Host "Image: $ACR_NAME.azurecr.io/$ACR_IMAGE`:$IMAGE_TAG" -ForegroundColor Green
 }
 
 function Deploy-All {
@@ -68,17 +65,20 @@ switch ($Target) {
 }
 
 Write-Host ""
-Write-Host "=== Environment Variables Reference ===" -ForegroundColor Cyan
+Write-Host "=== Production Reference ===" -ForegroundColor Cyan
 Write-Host "Frontend (Vercel):"
-Write-Host "  NEXT_PUBLIC_API_URL   https://payafrika-api.azurewebsites.net/api"
-Write-Host "  NEXT_PUBLIC_APP_URL   https://payafrika.vercel.app"
+Write-Host "  NEXT_PUBLIC_API_URL  $API_BASE_URL"
+Write-Host "  NEXT_PUBLIC_APP_URL  https://payafrika.vercel.app"
 Write-Host ""
-Write-Host "Backend (Azure App Service):"
-Write-Host "  ASPNETCORE_ENVIRONMENT               Production"
-Write-Host "  ConnectionStrings__DefaultConnection  Host=...;Database=payafrika;Username=...;Password=..."
-Write-Host "  Jwt__SecretKey                        <your-secret>"
-Write-Host "  Cors__AllowedOrigins                  [\"https://payafrika.vercel.app\"]"
-Write-Host "  Payment__Flutterwave__SecretKey        <key>"
-Write-Host "  Payment__Paystack__SecretKey           <key>"
-Write-Host "  Payment__Ozow__ApiKey                  <key>"
-Write-Host "  Payment__Peach__BearerToken            <token>"
+Write-Host "Backend (Azure Container App $CONTAINER_APP, RG $RESOURCE_GROUP):"
+Write-Host "  ASPNETCORE_ENVIRONMENT            Production"
+Write-Host "  ConnectionStrings__DefaultConnection  <Neon Postgres connection string>"
+Write-Host "  Jwt__SecretKey                    <JWT signing key>"
+Write-Host "  PAYAFRIKA_SECURITY_KEY            secretref:payafrika-security-key"
+Write-Host "  Cors__AllowedOrigins              [https://payafrika.vercel.app,...]"
+Write-Host "  Security__Email__Host             smtp.sendgrid.net (Password = secretref:sendgrid-api-key)"
+Write-Host "  Security__Sms__AccountSid         <Twilio SID> (AuthToken = secretref:twilio-auth-token)"
+Write-Host "  Security__Sms__FromNumber         <Twilio sender number>"
+Write-Host ""
+Write-Host "Secrets management: az containerapp secret set -n $CONTAINER_APP -g $RESOURCE_GROUP --secrets payafrika-security-key=... --environment <env>"
+Write-Host "Note: ACR Tasks are blocked on this subscription - deploy via local Docker build/push (done above)."

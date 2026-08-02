@@ -322,7 +322,6 @@ public class ReportService : IReportService
         var activeUsers = await _db.Users.CountAsync(u => u.UpdatedAt >= startDate);
         var emailVerified = await _db.Users.CountAsync(u => u.IsEmailVerified);
         var kycVerified = await _db.Users.CountAsync(u => u.KYCStatus == "verified");
-        var returningUsers = 0;
 
         var avgSpend = await _db.Transactions
             .Where(t => t.CreatedAt >= startDate && t.CreatedAt <= endDate && t.Status == "completed")
