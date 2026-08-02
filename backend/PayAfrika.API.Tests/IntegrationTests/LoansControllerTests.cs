@@ -15,10 +15,11 @@ public class LoansControllerTests : TestBase
             FullName = "Test User",
             Email = "test@example.com",
             PasswordHash = "hash",
+            KycLevel = 3,
         };
         SeedUser(user);
 
-        var controller = new LoansController(LoanService);
+        var controller = new LoansController(LoanService, Db);
         SetAuthHeader(controller, user.Id.ToString());
 
         var result = await controller.Apply(new LoanApplicationRequest
@@ -47,10 +48,11 @@ public class LoansControllerTests : TestBase
             FullName = "Test User",
             Email = "test@example.com",
             PasswordHash = "hash",
+            KycLevel = 3,
         };
         SeedUser(user);
 
-        var controller = new LoansController(LoanService);
+        var controller = new LoansController(LoanService, Db);
         SetAuthHeader(controller, user.Id.ToString());
 
         var result = await controller.Apply(new LoanApplicationRequest
@@ -90,7 +92,7 @@ public class LoansControllerTests : TestBase
         });
         Db.SaveChanges();
 
-        var controller = new LoansController(LoanService);
+        var controller = new LoansController(LoanService, Db);
         SetAuthHeader(controller, user.Id.ToString());
 
         var result = await controller.GetMyLoans();
@@ -112,7 +114,7 @@ public class LoansControllerTests : TestBase
         };
         SeedUser(user);
 
-        var controller = new LoansController(LoanService);
+        var controller = new LoansController(LoanService, Db);
         SetAuthHeader(controller, user.Id.ToString());
 
         var result = await controller.GetMyLoans();
@@ -147,7 +149,7 @@ public class LoansControllerTests : TestBase
         Db.Loans.Add(loan);
         Db.SaveChanges();
 
-        var controller = new LoansController(LoanService);
+        var controller = new LoansController(LoanService, Db);
         SetAuthHeader(controller, user.Id.ToString());
 
         var result = await controller.GetLoan(loan.Id);
@@ -169,7 +171,7 @@ public class LoansControllerTests : TestBase
         };
         SeedUser(user);
 
-        var controller = new LoansController(LoanService);
+        var controller = new LoansController(LoanService, Db);
         SetAuthHeader(controller, user.Id.ToString());
 
         var result = await controller.GetLoan(Guid.NewGuid());

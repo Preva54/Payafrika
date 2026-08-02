@@ -16,6 +16,14 @@ public class KycApplication
     [MaxLength(20)]
     public string ApplicationType { get; set; } = "individual";
 
+    /// <summary>Verification level achieved: 0 none, 1 basic (personal info), 2 identity, 3 address/full.</summary>
+    public int Level { get; set; }
+
+    public bool Escalated { get; set; }
+
+    [MaxLength(500)]
+    public string? EscalationReason { get; set; }
+
     public int RiskScore { get; set; }
     public int FraudScore { get; set; }
     public int AiConfidenceScore { get; set; }

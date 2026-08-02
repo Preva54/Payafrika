@@ -91,6 +91,21 @@ public class TransfersController : ControllerBase
             var user = await _db.Users.FindAsync(userId);
             if (user == null) return Unauthorized();
 
+            if (!KycPolicy.CanTransfer(user))
+                return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelBasic) });
+
+            if (request.Amount >= KycPolicy.HighValueThreshold && !KycPolicy.CanHighValueTransfer(user))
+                return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelIdentity) });
+
+            var residenceCode = await _db.Countries
+                .Where(c => c.Name == user.Country)
+                .Select(c => c.Code)
+                .FirstOrDefaultAsync();
+            if (!string.IsNullOrWhiteSpace(residenceCode)
+                && !string.Equals(request.CountryCode, residenceCode, StringComparison.OrdinalIgnoreCase)
+                && !KycPolicy.CanInternationalTransfer(user))
+                return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelFull) });
+
             var requiresOtp = user.TwoFactorEnabled || request.Amount >= HighRiskThreshold;
 
             if (requiresOtp)

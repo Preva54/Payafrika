@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using PayAfrika.API.Data;
 using PayAfrika.API.DTOs;
 using PayAfrika.API.Models;
+using PayAfrika.API.Services;
 
 namespace PayAfrika.API.Controllers;
 
@@ -14,60 +15,28 @@ namespace PayAfrika.API.Controllers;
 [Authorize]
 public class KycController : ControllerBase
 {
-    private readonly AppDbContext _db;
+    private const string AdminRoles = "admin,super_admin,compliance_officer";
 
-    public KycController(AppDbContext db)
+    private readonly AppDbContext _db;
+    private readonly IKycService _kyc;
+
+    public KycController(AppDbContext db, IKycService kyc)
     {
         _db = db;
+        _kyc = kyc;
     }
 
     [HttpGet("status")]
     public async Task<ActionResult<KycStatusResponse>> GetStatus()
+        => Ok(await _kyc.GetStatusAsync(GetUserId()));
+
+    [HttpGet("country-config")]
+    public async Task<ActionResult<KycCountryConfigResponse?>> GetCountryConfig([FromQuery] string? code)
     {
-        var userId = GetUserId();
-        var app = await _db.KycApplications
-            .Include(a => a.TimelineEvents)
-            .FirstOrDefaultAsync(a => a.UserId == userId);
-
-        if (app == null)
-        {
-            return Ok(new KycStatusResponse
-            {
-                Status = "not_started", OverallProgress = 0,
-                IdentityStatus = new() { Status = "pending" },
-                AddressStatus = new() { Status = "pending" },
-                PhoneStatus = new() { Status = "pending" },
-                EmailStatus = new() { Status = "pending" },
-                SelfieStatus = new() { Status = "pending" },
-                BusinessStatus = new() { Status = "pending" },
-                BankStatus = new() { Status = "pending" },
-                TaxStatus = new() { Status = "pending" },
-            });
-        }
-
-        var steps = JsonSerializer.Deserialize<List<string>>(app.CompletedSteps ?? "[]") ?? new();
-
-        return Ok(new KycStatusResponse
-        {
-            Id = app.Id,
-            Status = app.Status,
-            ApplicationType = app.ApplicationType,
-            OverallProgress = CalcProgress(app.Status, steps.Count),
-            CompletedSteps = steps,
-            IdentityStatus = CreateStepStatus(steps, "personal_info", app.UpdatedAt),
-            AddressStatus = CreateStepStatus(steps, "address", app.UpdatedAt),
-            PhoneStatus = CreateStepStatus(steps, "contact", app.UpdatedAt),
-            EmailStatus = new() { Status = "verified", UpdatedAt = app.CreatedAt },
-            SelfieStatus = CreateStepStatus(steps, "selfie", app.UpdatedAt),
-            BusinessStatus = CreateStepStatus(steps, "business", app.UpdatedAt),
-            BankStatus = CreateStepStatus(steps, "bank", app.UpdatedAt),
-            TaxStatus = new() { Status = "pending" },
-            SubmittedAt = app.SubmittedAt,
-            Timeline = app.TimelineEvents.OrderByDescending(t => t.CreatedAt).Select(t => new KycTimelineEventDto
-            {
-                EventType = t.EventType, Description = t.Description, CreatedAt = t.CreatedAt,
-            }).ToList(),
-        });
+        var country = code ?? (await _db.Users.FindAsync(GetUserId()))?.Country;
+        var config = await _kyc.GetCountryConfigAsync(country);
+        if (config == null) return NotFound(new { error = "No verification rules configured for this country yet. Using defaults in the wizard." });
+        return Ok(config);
     }
 
     [HttpPost("start")]
@@ -95,7 +64,7 @@ public class KycController : ControllerBase
         await _db.SaveChangesAsync();
         await LogKycActivity(userId, "Started KYC application", "kyc", $"KYC application started ({type})");
 
-        return await GetStatus();
+        return Ok(await _kyc.GetStatusAsync(userId));
     }
 
     [HttpPut("personal-info")]
@@ -155,55 +124,20 @@ public class KycController : ControllerBase
         [FromForm] string documentSide,
         [FromForm] IFormFile file)
     {
-        var app = await GetOrCreateApp();
         if (file == null || file.Length == 0)
             return BadRequest(new { error = "No file provided." });
 
-        using var ms = new MemoryStream();
-        await file.CopyToAsync(ms);
-        var fileData = Convert.ToBase64String(ms.ToArray());
-
-        var doc = new KycDocument
+        try
         {
-            KycApplicationId = app.Id,
-            DocumentType = documentType,
-            DocumentSide = documentSide,
-            FileName = file.FileName,
-            ContentType = file.ContentType,
-            FileSize = file.Length,
-            FileData = fileData,
-            Status = "submitted",
-            QualityScore = 85,
-            OcrData = JsonSerializer.Serialize(new
-            {
-                extractedName = $"{app.FirstName} {app.LastName}",
-                extractedDob = app.DateOfBirth?.ToString("yyyy-MM-dd"),
-                extractedDocumentNumber = documentType switch
-                {
-                    "national_id" => app.NationalIdNumber,
-                    "passport" => app.PassportNumber,
-                    "drivers_license" => app.DriversLicenseNumber,
-                    _ => null,
-                },
-            }),
-        };
-
-        _db.KycDocuments.Add(doc);
-        app.UpdatedAt = DateTime.UtcNow;
-
-        if (documentType == "selfie")
-            await AddStep(app, "selfie", "Selfie uploaded");
-        else if (documentType is "utility_bill" or "bank_statement" or "government_letter" or "lease_agreement")
-            await AddStep(app, "address", "Address document uploaded");
-
-        await _db.SaveChangesAsync();
-
-        return Ok(new KycDocumentUploadResponse
+            using var stream = file.OpenReadStream();
+            var doc = await _kyc.UploadDocumentAsync(GetUserId(), documentType, documentSide,
+                file.FileName, file.ContentType, file.Length, stream);
+            return Ok(doc);
+        }
+        catch (InvalidOperationException ex)
         {
-            Id = doc.Id, DocumentType = doc.DocumentType, FileName = doc.FileName,
-            FileSize = doc.FileSize, Status = doc.Status,
-            OcrData = doc.OcrData, QualityScore = doc.QualityScore,
-        });
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpPut("bank")]
@@ -240,43 +174,14 @@ public class KycController : ControllerBase
     [HttpPost("submit")]
     public async Task<ActionResult<KycSubmitResponse>> SubmitForReview()
     {
-        var userId = GetUserId();
-        var app = await _db.KycApplications.FirstOrDefaultAsync(a => a.UserId == userId);
-        if (app == null)
-            return BadRequest(new { error = "No KYC application found. Start one first." });
-
-        var steps = JsonSerializer.Deserialize<List<string>>(app.CompletedSteps ?? "[]") ?? new();
-        var required = new[] { "personal_info", "contact" };
-        var missing = required.Where(r => !steps.Contains(r)).ToList();
-        if (missing.Any())
-            return BadRequest(new { error = "Complete required steps first.", missing });
-
-        app.Status = "under_review";
-        app.SubmittedAt = DateTime.UtcNow;
-        app.UpdatedAt = DateTime.UtcNow;
-        app.CompletedSteps = JsonSerializer.Serialize(steps);
-
-        app.TimelineEvents.Add(new KycTimelineEvent
+        try
         {
-            EventType = "submitted",
-            Description = "Application submitted for review",
-        });
-
-        var user = await _db.Users.FindAsync(userId);
-        if (user != null)
-        {
-            user.KYCStatus = "pending";
-            user.UpdatedAt = DateTime.UtcNow;
+            return Ok(await _kyc.SubmitForReviewAsync(GetUserId()));
         }
-
-        await _db.SaveChangesAsync();
-        await LogKycActivity(userId, "Submitted KYC for review", "kyc", "Application submitted for compliance review");
-
-        return Ok(new KycSubmitResponse
+        catch (InvalidOperationException ex)
         {
-            Status = "under_review", Message = "Your application has been submitted for review. We'll notify you once it's processed.",
-            SubmittedAt = app.SubmittedAt,
-        });
+            return BadRequest(new { error = ex.Message });
+        }
     }
 
     [HttpGet("documents")]
@@ -291,20 +196,15 @@ public class KycController : ControllerBase
             .OrderByDescending(d => d.CreatedAt)
             .ToListAsync();
 
-        return Ok(docs.Select(d => new KycDocumentUploadResponse
-        {
-            Id = d.Id, DocumentType = d.DocumentType, FileName = d.FileName,
-            FileSize = d.FileSize, Status = d.Status,
-            OcrData = d.OcrData, QualityScore = d.QualityScore,
-        }).ToList());
+        return Ok(docs.Select(MapDocument).ToList());
     }
 
     // ── Admin endpoints ──────────────────────────────────
 
     [HttpGet("admin/applications")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = AdminRoles)]
     public async Task<ActionResult<List<KycAdminApplicationResponse>>> GetApplications(
-        [FromQuery] string? status, [FromQuery] string? country)
+        [FromQuery] string? status, [FromQuery] string? country, [FromQuery] bool? escalated)
     {
         var query = _db.KycApplications
             .Include(a => a.User)
@@ -312,6 +212,7 @@ public class KycController : ControllerBase
 
         if (!string.IsNullOrEmpty(status)) query = query.Where(a => a.Status == status);
         if (!string.IsNullOrEmpty(country)) query = query.Where(a => a.CountryOfResidence == country);
+        if (escalated == true) query = query.Where(a => a.Escalated);
 
         var apps = await query.OrderByDescending(a => a.CreatedAt).ToListAsync();
 
@@ -321,15 +222,17 @@ public class KycController : ControllerBase
             FullName = $"{a.FirstName} {a.LastName}".Trim(),
             Email = a.User.Email, Status = a.Status,
             ApplicationType = a.ApplicationType,
+            Level = a.Level,
             RiskScore = a.RiskScore, FraudScore = a.FraudScore,
             AiConfidenceScore = a.AiConfidenceScore,
+            Escalated = a.Escalated,
             Country = a.CountryOfResidence,
             SubmittedAt = a.SubmittedAt, CreatedAt = a.CreatedAt,
         }).ToList());
     }
 
     [HttpGet("admin/applications/{id}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = AdminRoles)]
     public async Task<ActionResult<KycAdminDetailResponse>> GetApplicationDetail(Guid id)
     {
         var app = await _db.KycApplications
@@ -344,7 +247,9 @@ public class KycController : ControllerBase
         return Ok(new KycAdminDetailResponse
         {
             Id = app.Id, Status = app.Status, ApplicationType = app.ApplicationType,
+            Level = app.Level,
             RiskScore = app.RiskScore, FraudScore = app.FraudScore, AiConfidenceScore = app.AiConfidenceScore,
+            Escalated = app.Escalated, EscalationReason = app.EscalationReason,
             PersonalInfo = new KycPersonalInfoRequest
             {
                 FirstName = app.FirstName ?? "", MiddleName = app.MiddleName,
@@ -371,12 +276,7 @@ public class KycController : ControllerBase
                 Industry = app.BusinessIndustry, Website = app.BusinessWebsite,
                 YearsInOperation = app.YearsInOperation,
             } : null,
-            Documents = app.Documents.Select(d => new KycDocumentUploadResponse
-            {
-                Id = d.Id, DocumentType = d.DocumentType, FileName = d.FileName,
-                FileSize = d.FileSize, Status = d.Status,
-                OcrData = d.OcrData, QualityScore = d.QualityScore,
-            }).ToList(),
+            Documents = app.Documents.Select(MapDocument).ToList(),
             Reviews = app.Reviews.Select(r => new KycReviewDto
             {
                 Id = r.Id, ReviewerName = r.Reviewer.FullName, Action = r.Action,
@@ -392,70 +292,58 @@ public class KycController : ControllerBase
     }
 
     [HttpPost("admin/applications/{id}/review")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = AdminRoles)]
     public async Task<ActionResult> ReviewApplication(Guid id, [FromBody] KycReviewRequest request)
     {
-        var app = await _db.KycApplications.Include(a => a.User).FirstOrDefaultAsync(a => a.Id == id);
-        if (app == null) return NotFound();
-
-        var adminId = GetUserId();
-        var review = new KycReview
+        try
         {
-            KycApplicationId = id, ReviewerId = adminId,
-            Action = request.Action, Notes = request.Notes,
-        };
-        _db.KycReviews.Add(review);
-
-        app.Status = request.Action switch
-        {
-            "approve" => "approved",
-            "reject" => "rejected",
-            "request_info" => "additional_info",
-            _ => app.Status,
-        };
-        app.ReviewedAt = DateTime.UtcNow;
-        app.UpdatedAt = DateTime.UtcNow;
-
-        if (request.Action == "approve") app.CompletedAt = DateTime.UtcNow;
-
-        app.TimelineEvents.Add(new KycTimelineEvent
-        {
-            EventType = request.Action switch
-            {
-                "approve" => "approved",
-                "reject" => "rejected",
-                "request_info" => "info_requested",
-                _ => "reviewed",
-            },
-            Description = request.Action switch
-            {
-                "approve" => "Application approved",
-                "reject" => $"Application rejected: {request.Notes}",
-                "request_info" => $"Additional information requested: {request.Notes}",
-                _ => $"Review action: {request.Action}",
-            },
-        });
-
-        if (app.User != null)
-        {
-            app.User.KYCStatus = request.Action switch
-            {
-                "approve" => "verified",
-                "reject" => "rejected",
-                _ => "pending",
-            };
-            app.User.UpdatedAt = DateTime.UtcNow;
+            var result = await _kyc.ReviewAsync(GetUserId(), id, request);
+            await LogKycActivity(GetUserId(), "Reviewed KYC application", "kyc_admin",
+                $"{request.Action} application {id}");
+            return Ok(result);
         }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 
-        await _db.SaveChangesAsync();
-        await LogKycActivity(adminId, $"Reviewed KYC application", "kyc_admin",
-            $"{request.Action} application {id}");
+    [HttpPost("admin/applications/{id}/escalate")]
+    [Authorize(Roles = AdminRoles)]
+    public async Task<ActionResult> EscalateApplication(Guid id, [FromBody] KycEscalateRequest request)
+    {
+        try
+        {
+            await _kyc.EscalateAsync(GetUserId(), id, request.Reason);
+            await LogKycActivity(GetUserId(), "Escalated KYC application", "kyc_admin",
+                $"Escalated application {id} for compliance review");
+            return Ok(new { message = "Application escalated for compliance review.", escalated = true });
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
 
-        return Ok(new { message = $"Application {request.Action}d.", status = app.Status });
+    [HttpGet("admin/applications/{id}/documents/{documentId}/image")]
+    [Authorize(Roles = AdminRoles)]
+    public async Task<IActionResult> GetDocumentImage(Guid id, Guid documentId)
+    {
+        var doc = await _kyc.GetDocumentAsync(GetUserId(), id, documentId);
+        if (doc == null) return NotFound();
+        return File(doc.Value.Data, doc.Value.ContentType, doc.Value.FileName);
     }
 
     [HttpDelete("admin/applications/{id}")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = AdminRoles)]
     public async Task<ActionResult> DeleteApplication(Guid id)
     {
         var app = await _db.KycApplications
@@ -475,7 +363,7 @@ public class KycController : ControllerBase
     }
 
     [HttpGet("admin/analytics")]
-    [Authorize(Roles = "admin")]
+    [Authorize(Roles = AdminRoles)]
     public async Task<ActionResult<KycAnalyticsResponse>> GetAnalytics()
     {
         var apps = await _db.KycApplications.ToListAsync();
@@ -486,6 +374,7 @@ public class KycController : ControllerBase
             PendingReview = apps.Count(a => a.Status is "under_review" or "pending"),
             Approved = apps.Count(a => a.Status == "approved"),
             Rejected = apps.Count(a => a.Status == "rejected"),
+            Escalated = apps.Count(a => a.Escalated),
             AverageReviewTimeHours = apps.Where(a => a.ReviewedAt.HasValue && a.SubmittedAt.HasValue)
                 .Select(a => (a.ReviewedAt!.Value - a.SubmittedAt!.Value).TotalHours)
                 .DefaultIfEmpty(0).Average(),
@@ -524,27 +413,28 @@ public class KycController : ControllerBase
         app.CompletedSteps = JsonSerializer.Serialize(steps);
         app.UpdatedAt = DateTime.UtcNow;
 
-        app.TimelineEvents.Add(new KycTimelineEvent
+        _db.KycTimelineEvents.Add(new KycTimelineEvent
         {
+            KycApplicationId = app.Id,
             EventType = $"step_{step}",
             Description = description,
         });
         await Task.CompletedTask;
     }
 
-    private static int CalcProgress(string status, int stepsDone)
+    private static KycDocumentUploadResponse MapDocument(KycDocument d) => new()
     {
-        if (status == "approved" || status == "verified") return 100;
-        if (status == "rejected") return 100;
-        return Math.Min(stepsDone * 14, 99);
-    }
-
-    private static KycStepStatus CreateStepStatus(List<string> steps, string step, DateTime updated)
-    {
-        if (steps.Contains(step))
-            return new KycStepStatus { Status = "completed", UpdatedAt = updated };
-        return new KycStepStatus { Status = "pending" };
-    }
+        Id = d.Id,
+        DocumentType = d.DocumentType,
+        FileName = d.FileName,
+        FileSize = d.FileSize,
+        Status = d.Status,
+        OcrData = d.OcrData,
+        DocumentNumber = d.DocumentNumber,
+        ExpiryDate = d.ExpiryDate,
+        RejectionReason = d.RejectionReason,
+        QualityScore = d.QualityScore,
+    };
 
     private async Task LogKycActivity(Guid userId, string action, string category, string details)
     {

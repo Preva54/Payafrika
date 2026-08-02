@@ -26,6 +26,7 @@ public class User
 
     public string Role { get; set; } = "customer"; // customer, business, admin
     public string? KYCStatus { get; set; } = "pending"; // pending, verified, rejected
+    public int KycLevel { get; set; } // 0 none, 1 basic, 2 identity, 3 full
     public bool IsEmailVerified { get; set; }
     public bool IsPhoneVerified { get; set; }
     public bool TwoFactorEnabled { get; set; }

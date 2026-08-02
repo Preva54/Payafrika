@@ -5,8 +5,12 @@ public class KycStatusResponse
     public Guid Id { get; set; }
     public string Status { get; set; } = "not_started";
     public string ApplicationType { get; set; } = "individual";
+    public int Level { get; set; }
     public int OverallProgress { get; set; }
     public List<string> CompletedSteps { get; set; } = new();
+    public string? Reason { get; set; }
+    public bool Escalated { get; set; }
+    public List<KycLevelStatus> Levels { get; set; } = new();
     public KycStepStatus IdentityStatus { get; set; } = new();
     public KycStepStatus AddressStatus { get; set; } = new();
     public KycStepStatus PhoneStatus { get; set; } = new();
@@ -17,6 +21,14 @@ public class KycStatusResponse
     public KycStepStatus TaxStatus { get; set; } = new();
     public DateTime? SubmittedAt { get; set; }
     public List<KycTimelineEventDto> Timeline { get; set; } = new();
+}
+
+public class KycLevelStatus
+{
+    public int Level { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Status { get; set; } = "locked"; // pending, completed, locked
 }
 
 public class KycStepStatus
@@ -64,6 +76,9 @@ public class KycDocumentUploadResponse
     public long FileSize { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? OcrData { get; set; }
+    public string? DocumentNumber { get; set; }
+    public DateTime? ExpiryDate { get; set; }
+    public string? RejectionReason { get; set; }
     public int QualityScore { get; set; }
 }
 
@@ -101,9 +116,11 @@ public class KycAdminApplicationResponse
     public string Email { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
     public string ApplicationType { get; set; } = string.Empty;
+    public int Level { get; set; }
     public int RiskScore { get; set; }
     public int FraudScore { get; set; }
     public int AiConfidenceScore { get; set; }
+    public bool Escalated { get; set; }
     public string? Country { get; set; }
     public DateTime? SubmittedAt { get; set; }
     public DateTime CreatedAt { get; set; }
@@ -114,9 +131,12 @@ public class KycAdminDetailResponse
     public Guid Id { get; set; }
     public string Status { get; set; } = string.Empty;
     public string ApplicationType { get; set; } = string.Empty;
+    public int Level { get; set; }
     public int RiskScore { get; set; }
     public int FraudScore { get; set; }
     public int AiConfidenceScore { get; set; }
+    public bool Escalated { get; set; }
+    public string? EscalationReason { get; set; }
     public KycPersonalInfoRequest? PersonalInfo { get; set; }
     public KycContactRequest? Contact { get; set; }
     public KycBankRequest? Bank { get; set; }
@@ -145,12 +165,29 @@ public class KycReviewRequest
     public string? Notes { get; set; }
 }
 
+public class KycEscalateRequest
+{
+    public string Reason { get; set; } = string.Empty;
+}
+
+public class KycCountryConfigResponse
+{
+    public string CountryCode { get; set; } = string.Empty;
+    public string CountryName { get; set; } = string.Empty;
+    public List<string> IdentityDocumentTypes { get; set; } = new();
+    public List<string> AddressDocumentTypes { get; set; } = new();
+    public bool IdentityDocBackRequired { get; set; }
+    public int AddressDocMaxAgeMonths { get; set; } = 3;
+    public int RequiredLevel { get; set; } = 3;
+}
+
 public class KycAnalyticsResponse
 {
     public int TotalApplications { get; set; }
     public int PendingReview { get; set; }
     public int Approved { get; set; }
     public int Rejected { get; set; }
+    public int Escalated { get; set; }
     public double AverageReviewTimeHours { get; set; }
     public double FraudDetectionRate { get; set; }
     public double AiSuccessRate { get; set; }

@@ -31,6 +31,11 @@ public class KycDocument
 
     public string? OcrData { get; set; }
 
+    [MaxLength(100)]
+    public string? DocumentNumber { get; set; }
+
+    public DateTime? ExpiryDate { get; set; }
+
     [MaxLength(500)]
     public string? RejectionReason { get; set; }
 

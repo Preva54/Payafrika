@@ -59,6 +59,7 @@ builder.Services.AddScoped<IDeviceFingerprintService, DeviceFingerprintService>(
 builder.Services.AddScoped<ILoginRiskService, LoginRiskService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ISmsService, SmsService>();
+builder.Services.AddScoped<IKycService, KycService>();
 builder.Services.AddHttpContextAccessor();
 
 builder.Services.Configure<FlutterwaveSettings>(builder.Configuration.GetSection("Payment:Flutterwave"));
@@ -265,6 +266,34 @@ using (var scope = app.Services.CreateScope())
         );
         CREATE INDEX IF NOT EXISTS ""IX_KycTimelineEvents_KycApplicationId"" ON ""KycTimelineEvents""(""KycApplicationId"");
         CREATE INDEX IF NOT EXISTS ""IX_KycTimelineEvents_CreatedAt"" ON ""KycTimelineEvents""(""CreatedAt"");
+
+        ALTER TABLE ""Users"" ADD COLUMN IF NOT EXISTS ""KycLevel"" INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE ""KycApplications"" ADD COLUMN IF NOT EXISTS ""Level"" INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE ""KycApplications"" ADD COLUMN IF NOT EXISTS ""Escalated"" BOOLEAN NOT NULL DEFAULT FALSE;
+        ALTER TABLE ""KycApplications"" ADD COLUMN IF NOT EXISTS ""EscalationReason"" VARCHAR(500) NULL;
+        ALTER TABLE ""KycDocuments"" ADD COLUMN IF NOT EXISTS ""DocumentNumber"" VARCHAR(100) NULL;
+        ALTER TABLE ""KycDocuments"" ADD COLUMN IF NOT EXISTS ""ExpiryDate"" TIMESTAMPTZ NULL;
+        CREATE INDEX IF NOT EXISTS ""IX_KycApplications_Escalated"" ON ""KycApplications""(""Escalated"");
+
+        CREATE TABLE IF NOT EXISTS ""KycCountryConfigs"" (
+            ""CountryCode"" VARCHAR(3) PRIMARY KEY,
+            ""CountryName"" VARCHAR(100) NOT NULL,
+            ""IdentityDocumentTypes"" TEXT NOT NULL,
+            ""AddressDocumentTypes"" TEXT NOT NULL,
+            ""IdentityDocBackRequired"" BOOLEAN NOT NULL DEFAULT FALSE,
+            ""AddressDocMaxAgeMonths"" INTEGER NOT NULL DEFAULT 3,
+            ""RequiredLevel"" INTEGER NOT NULL DEFAULT 3,
+            ""IsEnabled"" BOOLEAN NOT NULL DEFAULT TRUE
+        );
+        CREATE INDEX IF NOT EXISTS ""IX_KycCountryConfigs_IsEnabled"" ON ""KycCountryConfigs""(""IsEnabled"");
+
+        INSERT INTO ""KycCountryConfigs"" (""CountryCode"", ""CountryName"", ""IdentityDocumentTypes"", ""AddressDocumentTypes"", ""IdentityDocBackRequired"", ""AddressDocMaxAgeMonths"", ""RequiredLevel"", ""IsEnabled"")
+        VALUES
+          ('ZA', 'South Africa', '[""national_id"",""passport"",""drivers_license""]', '[""utility_bill"",""bank_statement"",""government_letter""]', TRUE, 3, 3, TRUE),
+          ('NG', 'Nigeria', '[""national_id"",""passport"",""drivers_license""]', '[""utility_bill"",""bank_statement"",""government_letter""]', FALSE, 3, 3, TRUE),
+          ('KE', 'Kenya', '[""national_id"",""passport"",""drivers_license"",""residence_permit""]', '[""utility_bill"",""bank_statement"",""government_letter""]', FALSE, 3, 3, TRUE),
+          ('GH', 'Ghana', '[""national_id"",""passport"",""drivers_license""]', '[""utility_bill"",""bank_statement"",""government_letter"",""municipal_statement""]', FALSE, 3, 3, TRUE)
+        ON CONFLICT (""CountryCode"") DO NOTHING;
 
         CREATE TABLE IF NOT EXISTS ""UserPreferences"" (
             ""Id"" UUID PRIMARY KEY,

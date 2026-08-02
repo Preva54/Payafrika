@@ -1,6 +1,8 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using PayAfrika.API.Data;
 using PayAfrika.API.DTOs;
 using PayAfrika.API.Services;
 
@@ -12,10 +14,12 @@ namespace PayAfrika.API.Controllers;
 public class LoansController : ControllerBase
 {
     private readonly ILoanService _loanService;
+    private readonly AppDbContext _db;
 
-    public LoansController(ILoanService loanService)
+    public LoansController(ILoanService loanService, AppDbContext db)
     {
         _loanService = loanService;
+        _db = db;
     }
 
     [HttpGet]
@@ -44,6 +48,12 @@ public class LoansController : ControllerBase
     public async Task<ActionResult<LoanResponse>> Apply([FromBody] LoanApplicationRequest request)
     {
         var userId = GetUserId();
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null) return Unauthorized();
+
+        if (!KycPolicy.CanLoan(user))
+            return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelIdentity) });
+
         var loan = await _loanService.ApplyAsync(userId, request);
         return CreatedAtAction(nameof(GetLoan), new { id = loan.Id }, loan);
     }

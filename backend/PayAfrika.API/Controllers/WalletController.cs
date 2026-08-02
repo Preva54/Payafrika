@@ -189,6 +189,12 @@ public class WalletController : ControllerBase
     public async Task<ActionResult> Transfer([FromBody] TransferRequest request)
     {
         var userId = GetUserId();
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null) return Unauthorized();
+
+        if (!KycPolicy.CanTransfer(user))
+            return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelBasic) });
+
         var balance = await _db.WalletBalances.FirstOrDefaultAsync(b => b.UserId == userId && b.Currency == request.FromCurrency);
         var wallet = await _db.Wallets.FirstAsync(w => w.UserId == userId);
 
@@ -222,6 +228,24 @@ public class WalletController : ControllerBase
     public async Task<ActionResult<InitiateTransferResponse>> SendToBank([FromBody] InitiateTransferRequest request)
     {
         var userId = GetUserId();
+        var user = await _db.Users.FindAsync(userId);
+        if (user == null) return Unauthorized();
+
+        if (!KycPolicy.CanTransfer(user))
+            return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelBasic) });
+
+        if (request.Amount >= KycPolicy.HighValueThreshold && !KycPolicy.CanHighValueTransfer(user))
+            return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelIdentity) });
+
+        var residenceCode = await _db.Countries
+            .Where(c => c.Name == user.Country)
+            .Select(c => c.Code)
+            .FirstOrDefaultAsync();
+        if (!string.IsNullOrWhiteSpace(request.RecipientCountryCode)
+            && !string.IsNullOrWhiteSpace(residenceCode)
+            && !string.Equals(request.RecipientCountryCode, residenceCode, StringComparison.OrdinalIgnoreCase)
+            && !KycPolicy.CanInternationalTransfer(user))
+            return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelFull) });
 
         if (request.Amount <= 0)
             return BadRequest(new { error = "Amount must be positive." });

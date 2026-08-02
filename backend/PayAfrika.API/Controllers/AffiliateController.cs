@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using PayAfrika.API.Data;
 using PayAfrika.API.Models;
+using PayAfrika.API.Services;
 
 namespace PayAfrika.API.Controllers;
 
@@ -54,7 +55,7 @@ public class AffiliateController : ControllerBase
     [HttpGet("payouts")] public async Task<IActionResult> GetPayouts() { try { var aff = await GetAffiliate(); return Ok(await _db.Payouts.Where(x => x.AffiliateId == aff.Id).OrderByDescending(x => x.RequestedAt).ToListAsync()); } catch { return Unauthorized(); } }
 
     [AllowAnonymous]
-    [HttpPost("payouts")] public async Task<IActionResult> RequestPayout([FromBody] Payout data) { var aff = await GetAffiliate(); if (aff.AvailableBalance <= 0) return BadRequest("No balance available"); var p = new Payout { Id = Guid.NewGuid(), AffiliateId = aff.Id, Amount = Math.Min(data.Amount, aff.AvailableBalance), Fee = 0, Method = data.Method, Status = "pending", Notes = data.Notes, RequestedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow }; _db.Payouts.Add(p); aff.AvailableBalance -= p.Amount; aff.TotalPaid += p.Amount; aff.UpdatedAt = DateTime.UtcNow; await _db.SaveChangesAsync(); return CreatedAtAction(nameof(GetPayouts), new { id = p.Id }, p); }
+    [HttpPost("payouts")] public async Task<IActionResult> RequestPayout([FromBody] Payout data) { var aff = await GetAffiliate(); var user = await _db.Users.FindAsync(aff.UserId); if (user == null || !KycPolicy.CanAffiliatePayout(user)) return BadRequest(KycPolicy.RequirementMessage(KycPolicy.LevelFull)); if (aff.AvailableBalance <= 0) return BadRequest("No balance available"); var p = new Payout { Id = Guid.NewGuid(), AffiliateId = aff.Id, Amount = Math.Min(data.Amount, aff.AvailableBalance), Fee = 0, Method = data.Method, Status = "pending", Notes = data.Notes, RequestedAt = DateTime.UtcNow, CreatedAt = DateTime.UtcNow }; _db.Payouts.Add(p); aff.AvailableBalance -= p.Amount; aff.TotalPaid += p.Amount; aff.UpdatedAt = DateTime.UtcNow; await _db.SaveChangesAsync(); return CreatedAtAction(nameof(GetPayouts), new { id = p.Id }, p); }
 
     [AllowAnonymous]
     [HttpGet("notifications")] public async Task<IActionResult> GetNotifications() { try { var aff = await GetAffiliate(); return Ok(await _db.AffiliateNotifications.Where(x => x.AffiliateId == aff.Id).OrderByDescending(x => x.CreatedAt).ToListAsync()); } catch { return Unauthorized(); } }

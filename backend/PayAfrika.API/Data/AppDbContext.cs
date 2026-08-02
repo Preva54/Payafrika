@@ -42,6 +42,7 @@ public class AppDbContext : DbContext
     public DbSet<KycDocument> KycDocuments => Set<KycDocument>();
     public DbSet<KycReview> KycReviews => Set<KycReview>();
     public DbSet<KycTimelineEvent> KycTimelineEvents => Set<KycTimelineEvent>();
+    public DbSet<KycCountryConfig> KycCountryConfigs => Set<KycCountryConfig>();
 
     public DbSet<ContentPage> ContentPages => Set<ContentPage>();
     public DbSet<BlogCategory> BlogCategories => Set<BlogCategory>();
@@ -420,6 +421,12 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(t => t.KycApplicationId);
             entity.HasIndex(t => t.CreatedAt);
+        });
+
+        modelBuilder.Entity<KycCountryConfig>(entity =>
+        {
+            entity.HasKey(c => c.CountryCode);
+            entity.HasIndex(c => c.IsEnabled);
         });
 
         modelBuilder.Entity<ContentPage>(e => { e.HasIndex(x => x.Slug).IsUnique(); e.HasIndex(x => x.Status); });

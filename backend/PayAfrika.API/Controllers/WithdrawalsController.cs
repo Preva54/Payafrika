@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using PayAfrika.API.Data;
 using PayAfrika.API.DTOs;
 using PayAfrika.API.Models;
+using PayAfrika.API.Services;
 using PayAfrika.API.Services.Security;
 
 namespace PayAfrika.API.Controllers;
@@ -103,8 +104,8 @@ public class WithdrawalsController : ControllerBase
         }
 
         // Compliance checks
-        if (user.KYCStatus != "verified" && user.KYCStatus != "approved")
-            return BadRequest(new { error = "KYC verification required before withdrawal." });
+        if (!KycPolicy.CanWithdraw(user))
+            return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelBasic) });
 
         var bank = await _db.LinkedBanks.FirstOrDefaultAsync(b => b.Id == request.BankId && b.UserId == userId);
         if (bank == null)

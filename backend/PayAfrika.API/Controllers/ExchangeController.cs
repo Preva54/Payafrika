@@ -55,8 +55,8 @@ public class ExchangeController : ControllerBase
             return BadRequest(new { error = "From and To currencies must be different." });
 
         var user = await _db.Users.FirstAsync(u => u.Id == userId);
-        if (user.KYCStatus != "verified" && user.KYCStatus != "submitted")
-            return BadRequest(new { error = "KYC verification required to perform exchanges." });
+        if (!KycPolicy.CanUseExchange(user))
+            return BadRequest(new { error = KycPolicy.RequirementMessage(KycPolicy.LevelBasic) });
 
         var wallet = await _db.Wallets.FirstAsync(w => w.UserId == userId);
         var fromBalance = await _db.WalletBalances.FirstOrDefaultAsync(b => b.UserId == userId && b.Currency == request.FromCurrency);
