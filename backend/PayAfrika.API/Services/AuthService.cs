@@ -667,6 +667,8 @@ public class AuthService : IAuthService
         Email = user.Email,
         Role = user.Role,
         KYCStatus = user.KYCStatus,
+        KycLevel = user.KycLevel,
+        Country = user.Country,
         AvatarUrl = user.AvatarUrl,
         IsEmailVerified = user.IsEmailVerified,
     };

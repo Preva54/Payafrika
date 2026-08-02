@@ -5,16 +5,15 @@ import { useParams, useRouter } from "next/navigation"
 import { kycApi, type KycAdminDetail } from "@/lib/api"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Progress } from "@/components/ui/progress"
 import { motion } from "framer-motion"
 import {
-  Shield, ShieldCheck, ShieldAlert, ArrowLeft, Check, X,
-  AlertTriangle, Search, ZoomIn, RotateCw, FileText, Image as ImageIcon,
-  User, MapPin, Phone, Mail, Building2, Landmark, Clock, Loader2,
-  ChevronDown, ChevronUp, ExternalLink
+  ShieldCheck, ShieldAlert, ArrowLeft, Check, X,
+  AlertTriangle, ZoomIn, FileText,
+  User, MapPin, Building2, Landmark, Clock, Loader2,
+  ChevronDown, ChevronUp
 } from "lucide-react"
 
 export default function AdminKycDetailPage() {
@@ -25,6 +24,8 @@ export default function AdminKycDetailPage() {
   const [notes, setNotes] = useState("")
   const [actionLoading, setActionLoading] = useState(false)
   const [expandedDoc, setExpandedDoc] = useState<string | null>(null)
+  const [escalationOpen, setEscalationOpen] = useState(false)
+  const [escalationReason, setEscalationReason] = useState("")
 
   useEffect(() => {
     if (params.id) {
@@ -42,6 +43,19 @@ export default function AdminKycDetailPage() {
     } catch { /* ignore */ }
     setActionLoading(false)
     setNotes("")
+  }
+
+  const handleEscalate = async () => {
+    if (!app || !escalationReason.trim()) return
+    setActionLoading(true)
+    try {
+      await kycApi.escalateApplication(app.id, escalationReason)
+      const updated = await kycApi.getApplicationDetail(app.id)
+      setApp(updated)
+    } catch { /* ignore */ }
+    setActionLoading(false)
+    setEscalationReason("")
+    setEscalationOpen(false)
   }
 
   if (loading) return (
@@ -74,10 +88,23 @@ export default function AdminKycDetailPage() {
               {app.status === "approved" ? <ShieldCheck className="h-4 w-4 mr-1" /> : app.status === "rejected" ? <ShieldAlert className="h-4 w-4 mr-1" /> : <Clock className="h-4 w-4 mr-1" />}
               {app.status.replace("_", " ").toUpperCase()}
             </Badge>
+            <Badge className="bg-primary/10 text-primary border-primary/20 text-sm px-3 py-1">
+              Level {app.level || 0}
+            </Badge>
           </div>
           <p className="text-sm text-muted-foreground">{app.userEmail} · {app.applicationType} · Submitted {app.submittedAt ? new Date(app.submittedAt).toLocaleDateString() : "N/A"}</p>
         </div>
       </div>
+
+      {app.escalated && (
+        <div className="glass rounded-2xl p-4 flex items-start gap-3 border-orange-500/20 bg-orange-500/5">
+          <AlertTriangle className="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
+          <div>
+            <p className="text-sm font-medium">Escalated for compliance review</p>
+            <p className="text-xs text-muted-foreground mt-0.5">{app.escalationReason || "No reason provided"}</p>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
@@ -156,7 +183,7 @@ export default function AdminKycDetailPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Badge className={`text-xs ${doc.status === "verified" ? "bg-green-500/10 text-green-500" : doc.status === "rejected" ? "bg-red-500/10 text-red-500" : "bg-blue-500/10 text-blue-500"}`}>{doc.status}</Badge>
+                      <Badge className={`text-xs ${doc.status === "submitted" || doc.status === "verified" ? "bg-green-500/10 text-green-500" : doc.status === "rejected" ? "bg-red-500/10 text-red-500" : "bg-blue-500/10 text-blue-500"}`}>{doc.status}</Badge>
                       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setExpandedDoc(expandedDoc === doc.id ? null : doc.id)}>
                         {expandedDoc === doc.id ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                       </Button>
@@ -164,9 +191,22 @@ export default function AdminKycDetailPage() {
                   </div>
                   {expandedDoc === doc.id && (
                     <div className="mt-3 pt-3 border-t border-border/50">
-                      <div className="aspect-[4/3] glass rounded-xl flex items-center justify-center mb-3">
-                        <ImageIcon className="h-12 w-12 text-muted-foreground opacity-30" />
+                      <div className="aspect-[4/3] glass rounded-xl flex items-center justify-center mb-3 overflow-hidden">
+                        <img
+                          src={kycApi.getDocumentImageUrl(app.id, doc.id)}
+                          alt={doc.fileName}
+                          className="w-full h-full object-contain"
+                        />
                       </div>
+                      {doc.rejectionReason && (
+                        <p className="text-xs text-red-500 mb-2">{doc.rejectionReason}</p>
+                      )}
+                      {doc.documentNumber && (
+                        <p className="text-xs text-muted-foreground mb-1">Document number: <span className="font-mono">{doc.documentNumber}</span></p>
+                      )}
+                      {doc.expiryDate && (
+                        <p className="text-xs text-muted-foreground mb-2">Expiry: {new Date(doc.expiryDate).toLocaleDateString()}</p>
+                      )}
                       {doc.ocrData && (
                         <div className="text-xs font-mono glass rounded-lg p-2">
                           <p className="font-semibold mb-1">OCR Data:</p>
@@ -174,9 +214,7 @@ export default function AdminKycDetailPage() {
                         </div>
                       )}
                       <div className="flex gap-2 mt-2">
-                        <Button variant="outline" size="sm"><ZoomIn className="h-3 w-3 mr-1" /> Zoom</Button>
-                        <Button variant="outline" size="sm"><RotateCw className="h-3 w-3 mr-1" /> Rotate</Button>
-                        <Button variant="outline" size="sm"><ExternalLink className="h-3 w-3 mr-1" /> Open</Button>
+                        <Button variant="outline" size="sm" onClick={() => window.open(kycApi.getDocumentImageUrl(app.id, doc.id), "_blank")}><ZoomIn className="h-3 w-3 mr-1" /> Open in new tab</Button>
                       </div>
                     </div>
                   )}
@@ -240,6 +278,34 @@ export default function AdminKycDetailPage() {
                   <X className="h-4 w-4 mr-1" />
                   Reject
                 </Button>
+                {!app.escalated && (
+                  <>
+                    <Button className="w-full" variant="outline" onClick={() => setEscalationOpen(!escalationOpen)} disabled={actionLoading}>
+                      <AlertTriangle className="h-4 w-4 mr-1 text-orange-500" />
+                      Escalate
+                    </Button>
+                    {escalationOpen && (
+                      <div className="space-y-2 glass rounded-xl p-3">
+                        <Label>Escalation Reason</Label>
+                        <Textarea
+                          value={escalationReason}
+                          onChange={(e) => setEscalationReason(e.target.value)}
+                          placeholder="e.g. High risk jurisdiction, suspected document tampering..."
+                          className="rounded-xl min-h-[80px]"
+                        />
+                        <Button className="w-full" size="sm" variant="outline" onClick={handleEscalate} disabled={actionLoading || !escalationReason.trim()}>
+                          {actionLoading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <AlertTriangle className="h-4 w-4 mr-1 text-orange-500" />}
+                          Confirm Escalation
+                        </Button>
+                      </div>
+                    )}
+                  </>
+                )}
+                {app.escalated && (
+                  <Badge className="w-full justify-center bg-orange-500/10 text-orange-500 border-orange-500/20 py-2">
+                    <AlertTriangle className="h-4 w-4 mr-1" /> Escalated
+                  </Badge>
+                )}
               </div>
             </div>
           </motion.div>

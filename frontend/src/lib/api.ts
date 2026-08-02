@@ -142,6 +142,8 @@ export interface UserInfo {
   email: string
   role: string
   kycStatus: string | null
+  kycLevel?: number
+  country?: string
   avatarUrl: string | null
   isEmailVerified: boolean
 }
@@ -1427,8 +1429,12 @@ export interface KycStatusInfo {
   id: string;
   status: string;
   applicationType: string;
+  level: number;
   overallProgress: number;
   completedSteps: string[];
+  reason?: string;
+  escalated: boolean;
+  levels: KycLevelStatus[];
   identityStatus: { status: string; updatedAt?: string };
   addressStatus: { status: string; updatedAt?: string };
   phoneStatus: { status: string; updatedAt?: string };
@@ -1439,6 +1445,23 @@ export interface KycStatusInfo {
   taxStatus: { status: string; updatedAt?: string };
   submittedAt?: string;
   timeline: KycTimelineEvent[];
+}
+
+export interface KycLevelStatus {
+  level: number;
+  name: string;
+  description: string;
+  status: string; // pending | completed | locked
+}
+
+export interface KycCountryConfig {
+  countryCode: string;
+  countryName: string;
+  identityDocumentTypes: string[];
+  addressDocumentTypes: string[];
+  identityDocBackRequired: boolean;
+  addressDocMaxAgeMonths: number;
+  requiredLevel: number;
 }
 
 export interface KycTimelineEvent {
@@ -1454,6 +1477,9 @@ export interface KycDocumentInfo {
   fileSize: number;
   status: string;
   ocrData?: string;
+  documentNumber?: string;
+  expiryDate?: string;
+  rejectionReason?: string;
   qualityScore: number;
 }
 
@@ -1470,9 +1496,11 @@ export interface KycAdminApp {
   email: string;
   status: string;
   applicationType: string;
+  level: number;
   riskScore: number;
   fraudScore: number;
   aiConfidenceScore: number;
+  escalated: boolean;
   country?: string;
   submittedAt?: string;
   createdAt: string;
@@ -1482,6 +1510,9 @@ export interface KycAdminDetail {
   id: string;
   status: string;
   applicationType: string;
+  level: number;
+  escalated: boolean;
+  escalationReason?: string;
   riskScore: number;
   fraudScore: number;
   aiConfidenceScore: number;
@@ -1534,6 +1565,7 @@ export interface KycAnalytics {
   pendingReview: number;
   approved: number;
   rejected: number;
+  escalated: number;
   averageReviewTimeHours: number;
   fraudDetectionRate: number;
   aiSuccessRate: number;
@@ -1760,6 +1792,11 @@ export const exchangeApi = {
 
 export const kycApi = {
   getStatus: () => api.get<KycStatusInfo>("/kyc/status"),
+  getCountryConfig: (code?: string) => {
+    const params = new URLSearchParams();
+    if (code) params.set("code", code);
+    return api.get<KycCountryConfig>(`/kyc/country-config?${params.toString()}`);
+  },
   start: (type = "individual") => api.post<KycStatusInfo>(`/kyc/start?type=${type}`),
   updatePersonalInfo: (data: Record<string, unknown>) => api.put("/kyc/personal-info", data),
   updateContact: (data: Record<string, unknown>) => api.put("/kyc/contact", data),
@@ -1776,14 +1813,20 @@ export const kycApi = {
   getDocuments: () => api.get<KycDocumentInfo[]>("/kyc/documents"),
 
   // Admin
-  getApplications: (status?: string, country?: string) => {
+  getApplications: (status?: string, country?: string, escalated?: boolean) => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (country) params.set("country", country);
+    if (escalated) params.set("escalated", String(escalated));
     return api.get<KycAdminApp[]>(`/kyc/admin/applications?${params.toString()}`);
   },
   getApplicationDetail: (id: string) => api.get<KycAdminDetail>(`/kyc/admin/applications/${id}`),
   reviewApplication: (id: string, data: { action: string; notes?: string }) =>
     api.post(`/kyc/admin/applications/${id}/review`, data),
+  escalateApplication: (id: string, reason: string) =>
+    api.post(`/kyc/admin/applications/${id}/escalate`, { reason }),
+  getDocumentImageUrl: (id: string, documentId: string) =>
+    `${API_URL}/kyc/admin/applications/${id}/documents/${documentId}/image`,
+  deleteApplication: (id: string) => api.delete(`/kyc/admin/applications/${id}`),
   getAnalytics: () => api.get<KycAnalytics>("/kyc/admin/analytics"),
 };

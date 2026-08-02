@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { motion } from "framer-motion"
-import { Shield, Search, Filter, ArrowRight, Clock, CheckCircle2, XCircle, Loader2, Users, AlertTriangle, BarChart3 } from "lucide-react"
+import { Shield, Search, ArrowRight, Clock, CheckCircle2, XCircle, Loader2, Users, AlertTriangle } from "lucide-react"
 
 export default function AdminKycPage() {
   const router = useRouter()
@@ -17,22 +17,22 @@ export default function AdminKycPage() {
   const [search, setSearch] = useState("")
   const [filterStatus, setFilterStatus] = useState("")
   const [filterCountry, setFilterCountry] = useState("")
+  const [filterEscalated, setFilterEscalated] = useState(false)
 
   useEffect(() => {
+    setLoading(true)
     Promise.all([
-      kycApi.getApplications(),
+      kycApi.getApplications(filterStatus || undefined, filterCountry || undefined, filterEscalated || undefined),
       kycApi.getAnalytics(),
     ]).then(([appsRes, analyticsRes]) => {
       setApps(appsRes)
       setAnalytics(analyticsRes)
       setLoading(false)
     })
-  }, [])
+  }, [filterStatus, filterCountry, filterEscalated])
 
   const filtered = apps.filter((a) => {
     if (search && !a.fullName.toLowerCase().includes(search.toLowerCase()) && !a.email.toLowerCase().includes(search.toLowerCase())) return false
-    if (filterStatus && a.status !== filterStatus) return false
-    if (filterCountry && a.country !== filterCountry) return false
     return true
   })
 
@@ -64,12 +64,13 @@ export default function AdminKycPage() {
       </div>
 
       {analytics && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {[
             { label: "Total", value: analytics.totalApplications, icon: <Users className="h-4 w-4" />, color: "text-primary" },
             { label: "Pending Review", value: analytics.pendingReview, icon: <Clock className="h-4 w-4" />, color: "text-blue-500" },
             { label: "Approved", value: analytics.approved, icon: <CheckCircle2 className="h-4 w-4" />, color: "text-green-500" },
             { label: "Rejected", value: analytics.rejected, icon: <XCircle className="h-4 w-4" />, color: "text-red-500" },
+            { label: "Escalated", value: analytics.escalated, icon: <AlertTriangle className="h-4 w-4" />, color: "text-orange-500" },
           ].map((stat, i) => (
             <motion.div key={stat.label} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.05 }}
               className="glass-card rounded-2xl p-4"
@@ -101,6 +102,14 @@ export default function AdminKycPage() {
           <option value="">All Countries</option>
           {[...new Set(apps.map((a) => a.country).filter(Boolean))].map((c) => <option key={c} value={c}>{c}</option>)}
         </select>
+        <Button
+          variant={filterEscalated ? "gradient" : "outline"}
+          size="sm"
+          onClick={() => setFilterEscalated(!filterEscalated)}
+          className="h-10 px-3"
+        >
+          <AlertTriangle className="h-4 w-4 mr-1" /> Escalated
+        </Button>
       </div>
 
       <div className="space-y-2">
@@ -129,6 +138,11 @@ export default function AdminKycPage() {
                     <Badge className={`${statusColor(app.status)} text-[10px]`}>
                       {app.status.replace("_", " ")}
                     </Badge>
+                    {app.escalated && (
+                      <Badge className="bg-orange-500/10 text-orange-500 border-orange-500/20 text-[10px]">
+                        <AlertTriangle className="h-3 w-3 mr-0.5" /> Escalated
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground">{app.email} · {app.applicationType}</p>
                 </div>

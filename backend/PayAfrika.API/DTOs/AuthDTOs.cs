@@ -54,6 +54,8 @@ public class UserInfo
     public string Email { get; set; } = string.Empty;
     public string Role { get; set; } = string.Empty;
     public string? KYCStatus { get; set; }
+    public int KycLevel { get; set; }
+    public string? Country { get; set; }
     public string? AvatarUrl { get; set; }
     public bool IsEmailVerified { get; set; }
 }
